@@ -46,14 +46,14 @@ public static class MemberReflectionExtensions
         expr.GetMemberInfo<T, TMember, MemberInfo>();
     
     public static TMemberInfo GetMemberInfo<T, TMember, TMemberInfo>(this Expression<Func<T, TMember>> expr) where TMemberInfo : MemberInfo =>
-        expr.ThrowNullArgExIfNull().Body switch
+        expr.ThrowIfArgIsNull().Body switch
         {
             MemberExpression { Member: TMemberInfo mi, Expression: ParameterExpression } when mi.DeclaringType == typeof(T) => mi,
             UnaryExpression { Operand: MemberExpression { Member: TMemberInfo mi, Expression: ParameterExpression } } when mi.DeclaringType == typeof(T) => mi,
             _ => throw new ArgumentException($"The expression doesn't indicate a valid {typeof(TMemberInfo).Name}. [ {expr} ]")
         };
 
-    public static T ThrowNullArgExIfNull<T>(this T value, [CallerArgumentExpression(nameof(value))] String paramName = "") where T : notnull
+    public static T ThrowIfArgIsNull<T>(this T value, [CallerArgumentExpression(nameof(value))] String paramName = "") where T : notnull
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         return value;
