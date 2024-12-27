@@ -106,4 +106,63 @@ public class MemberReflectionExtensionTests
         Func<MemberInfo> act = expression.GetMemberInfo;
         act.Should().Throw<ArgumentException>();
     }
+    
+    [Fact]
+    public void GetPropOrFieldGetter_ReturnsCorrectGetter_ForField()
+    {
+        var fieldInfo = typeof(TestClass).GetField(nameof(TestClass.Field));
+        var getter = fieldInfo.GetPropOrFieldGetter();
+        var instance = new TestClass { Field = 42 };
+        Assert.Equal(42, getter(instance));
+    }
+
+    [Fact]
+    public void GetPropOrFieldGetter_ReturnsCorrectGetter_ForProperty()
+    {
+        var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.Property));
+        var getter = propertyInfo.GetPropOrFieldGetter();
+        var instance = new TestClass { Property = 42 };
+        Assert.Equal(42, getter(instance));
+    }
+
+    [Fact]
+    public void GetPropOrFieldGetter_ThrowsArgumentOutOfRangeException_ForInvalidMemberInfo()
+    {
+        var methodInfo = typeof(TestClass).GetMethod(nameof(TestClass.Method));
+        Assert.Throws<ArgumentOutOfRangeException>(() => methodInfo.GetPropOrFieldGetter());
+    }
+
+    [Fact]
+    public void GetPropOrFieldSetter_SetsCorrectValue_ForField()
+    {
+        var fieldInfo = typeof(TestClass).GetField(nameof(TestClass.Field));
+        var setter = fieldInfo.GetPropOrFieldSetter();
+        var instance = new TestClass();
+        setter(instance, 42);
+        Assert.Equal(42, instance.Field);
+    }
+
+    [Fact]
+    public void GetPropOrFieldSetter_SetsCorrectValue_ForProperty()
+    {
+        var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.Property));
+        var setter = propertyInfo.GetPropOrFieldSetter();
+        var instance = new TestClass();
+        setter(instance, 42);
+        Assert.Equal(42, instance.Property);
+    }
+
+    [Fact]
+    public void GetPropOrFieldSetter_ThrowsArgumentOutOfRangeException_ForInvalidMemberInfo()
+    {
+        var methodInfo = typeof(TestClass).GetMethod(nameof(TestClass.Method));
+        Assert.Throws<ArgumentOutOfRangeException>(() => methodInfo.GetPropOrFieldSetter());
+    }
+
+    public class TestClass
+    {
+        public int Field;
+        public int Property { get; set; }
+        public void Method() { }
+    }
 }
