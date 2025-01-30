@@ -1,7 +1,7 @@
 using System;
 using System.Reflection.Emit;
 using System.Threading;
-using IL_Lumination;
+using Illumination;
 using Xunit;
 
 namespace Unit_Tests;

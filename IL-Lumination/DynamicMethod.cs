@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
-namespace IL_Lumination;
+namespace Illumination;
 
 public class DynamicMethod<TDel> where TDel : Delegate
 {

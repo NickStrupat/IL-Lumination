@@ -2,9 +2,8 @@ using System;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
 
-namespace IL_Lumination;
+namespace Illumination;
 
 public static class MemberReflectionExtensions
 {
@@ -112,7 +111,7 @@ public static class MemberReflectionExtensions
             _ => throw new ArgumentException($"The expression doesn't indicate a valid {typeof(TMemberInfo).Name}. [ {expr} ]")
         };
 
-    public static T ThrowIfArgIsNull<T>(this T value, [CallerArgumentExpression(nameof(value))] String paramName = "") where T : notnull
+    public static T ThrowIfArgIsNull<T>(this T value, [CallerArgumentExpression(nameof(value))] String? paramName = null) where T : class
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         return value;

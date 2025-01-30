@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 
-namespace IL_Lumination;
+namespace Illumination;
 
 public static class BodyExtensions
 {
@@ -44,6 +45,16 @@ public static class BodyRetExtensions
 	// 		body.Ldc_I4(value is true ? 1 : 0);
 	// 	return body.Ret();
 	// }
+}
+
+public static class BodyLogicExtensions
+{
+	public static Body ForEach<T>(this Body body, IEnumerable<T> enumerable, Action<Body, T> action)
+	{
+		foreach (var item in enumerable)
+			action(body, item);
+		return body;
+	}
 }
 
 public sealed class Body(ILGenerator il)
