@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Illumination;
+namespace Illumination.Assembly;
 
 public abstract class Definition
 {
@@ -30,6 +30,14 @@ public abstract class NamedDefinition : Definition
 public sealed class AssemblyDef(String name) : NamedDefinition(name)
 {
 	public HashSet<ModuleDef> Modules { get; } = new();
+
+	public ModuleDef AddNewModule(String name)
+	{
+		ModuleDef md = new(name);
+		Modules.Add(md);
+		md.Parent = this;
+		return md;
+	}
 }
 
 public sealed class ModuleDef(String name) : NamedDefinition(name)
@@ -57,6 +65,8 @@ public abstract class TypeDef : NamedDefinition
 	private TypeDef(String name) : base(name) {}
 	
 	public MethodDef? StaticConstructor { get; set; }
+	public TypeRef? BaseType { get; set; }
+	public HashSet<TypeRef> Interfaces { get; } = new();
 	public HashSet<NestedTypeDef> Types { get; } = new();
 	public HashSet<MethodDef> Methods { get; } = new();
 	
@@ -70,7 +80,7 @@ public abstract class MethodDef : NamedDefinition
 	
 	public HashSet<GenericParameterDef> GenericParameters { get; } = new();
 	public HashSet<ParameterDef> Parameters { get; } = new();
-	public required Type ReturnType { get; set; }
+	public required TypeRef ReturnType { get; set; }
 
 	public sealed class GlobalMethodDef(String name) : MethodDef(name);
 	public sealed class NestedMethodDef(String name) : MethodDef(name);
@@ -83,7 +93,4 @@ public sealed class ParameterDef(String name) : NamedDefinition(name)
 
 public sealed class GenericParameterDef(String name) : NamedDefinition(name);
 
-public sealed class TypeRef(String assemblyQualifiedName) : Definition
-{
-	public String AssemblyQualifiedName { get; private set; } = assemblyQualifiedName;
-}
+public sealed class TypeRef(String name) : NamedDefinition(name);
