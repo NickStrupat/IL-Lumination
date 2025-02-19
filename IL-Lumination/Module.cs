@@ -19,7 +19,7 @@ file static class ListExtensions
 
 public sealed class XAssembly(String name)
 {
-	internal readonly AssemblyBuilder AssemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new(name), RunAndCollect);
+	internal readonly System.Reflection.Emit.AssemblyBuilder AssemblyBuilder = System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(new(name), RunAndCollect);
 
 	public String Name => name;
 	
@@ -34,7 +34,7 @@ public sealed class XAssembly(String name)
 	}
 }
 
-public sealed class XModule(ModuleBuilder moduleBuilder)
+public sealed class XModule(System.Reflection.Emit.ModuleBuilder moduleBuilder)
 {
 	public String Name => moduleBuilder.Name;
 	public IReadOnlyList<XType> Types { get; } = new List<XType>();
@@ -47,7 +47,7 @@ public sealed class XModule(ModuleBuilder moduleBuilder)
 		Methods.Add(new(moduleBuilder.DefineGlobalMethod(name, attributes, @return, @params)));
 }
 
-public sealed class XType(TypeBuilder typeBuilder)
+public sealed class XType(System.Reflection.Emit.TypeBuilder typeBuilder)
 {
 	public IReadOnlyList<XType> Types { get; } = new List<XType>();
 	public IReadOnlyList<XMethod> Methods { get; } = new List<XMethod>();
@@ -59,7 +59,7 @@ public sealed class XType(TypeBuilder typeBuilder)
 		Methods.Add(new(typeBuilder.DefineMethod(name, attributes, returnType, parameterTypes)));
 }
 
-public sealed class XMethod(MethodBuilder methodBuilder)
+public sealed class XMethod(System.Reflection.Emit.MethodBuilder methodBuilder)
 {
 	public IReadOnlyList<XParameter> Parameters { get; } = new List<XParameter>();
 	public IReadOnlyList<XGenericTypeParameter> GenericParameters { get; } = new List<XGenericTypeParameter>();
@@ -71,12 +71,12 @@ public sealed class XMethod(MethodBuilder methodBuilder)
 	// 	GenericParameters.Add(new(methodBuilder.defin(name, attributes)));
 }
 
-public class XGenericTypeParameter(GenericTypeParameterBuilder genericTypeParameterBuilder)
+public class XGenericTypeParameter(System.Reflection.Emit.GenericTypeParameterBuilder genericTypeParameterBuilder)
 {
 	
 }
 
-public sealed class XParameter(ParameterBuilder parameterBuilder)
+public sealed class XParameter(System.Reflection.Emit.ParameterBuilder parameterBuilder)
 {
 	public String Name => parameterBuilder.Name ?? throw new("Parameter name is null");
 	//public Type ParameterType => parameterBuilder.;
