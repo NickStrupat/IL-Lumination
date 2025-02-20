@@ -23,7 +23,7 @@ public static class BuilderExtensions
 			throw new InvalidOperationException("Saving an assembly requires a name.");
 		var ab = new Sre.PersistedAssemblyBuilder(new(assemblyBuilder.name), typeof(Object).Assembly);
 		assemblyBuilder.Build(ab);
-		ab.Save(path);
+		ab.Save(path, assemblyBuilder.entryPoint?.Resolve());
 	}
 
 	private static void Build(this AssemblyBuilder assemblyBuilder, Sre.AssemblyBuilder ab)
@@ -60,8 +60,6 @@ public static class BuilderExtensions
 			throw new InvalidOperationException("Methods require a name.");
 		foreach (var parameterBuilder in methodBuilder.parameters)
 		{
-			if (String.IsNullOrEmpty(parameterBuilder.name))
-				throw new InvalidOperationException("Parameters require a name.");
 			if (parameterBuilder.typeRef == null)
 				throw new InvalidOperationException("Parameters require a type.");
 		}
@@ -71,11 +69,14 @@ public static class BuilderExtensions
 			methodBuilder.returnTypeRef!.Resolve(),
 			methodBuilder.parameters.Select(x => x.typeRef!.Resolve()).ToArray()
 		);
-		var body = mb.GetILGenerator().Body();
 		for (var index = 0; index < methodBuilder.parameters.Count; index++)
 		{
 			var pb = mb.DefineParameter(index + 1, ParameterAttributes.None, methodBuilder.parameters[index].name);
 		}
+
+		var dictionary = methodBuilder.parameters.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
+		Int16? ParameterLookup(String s) => dictionary.TryGetValue(s, out var index) ? index : null;
+		var body = new BodyBuilder(mb.GetILGenerator(), ParameterLookup);
 
 		methodBuilder.bodyActions.ForEach(a => a.Invoke(body));
 
