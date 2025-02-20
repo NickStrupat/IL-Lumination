@@ -62,14 +62,18 @@ public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T
 	
 	public T ReturnType(Type returnType) { this.returnTypeRef = returnType; return (T)this; }
 	public T ReturnType(TypeBuilder returnTypeBuilder) { this.returnTypeRef = returnTypeBuilder; return (T)this; }
-	
-	public T NewParameter(out ParameterBuilder parameterBuilder) => (T)this.AddTo(parameters, parameterBuilder = new());
-	public T NewParameter(Action<ParameterBuilder> parameterBuilderAction) => (T)this.AddAction(parameters, new(), parameterBuilderAction);
+
+	public T NewParameter(out ParameterBuilder parameterBuilder, Action<ParameterBuilder> parameterBuilderAction) => (T)this.AddAction(parameters, parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
+	public T NewParameter(out ParameterBuilder parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
+	public T NewParameter(Action<ParameterBuilder> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
+	public T NewParameter<TParam>(out ParameterBuilder parameterBuilder, Action<ParameterBuilder> parameterBuilderAction) => NewParameter(out parameterBuilder, x => parameterBuilderAction(x.Type(typeof(TParam))));
+	public T NewParameter<TParam>(out ParameterBuilder parameterBuilder) => NewParameter<TParam>(out parameterBuilder, _ => {});
+	public T NewParameter<TParam>(Action<ParameterBuilder> parameterBuilderAction) => NewParameter<TParam>(out _, parameterBuilderAction);
 	
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => (T)this.AddTo(typeParameters, typeParameterBuilder = new());
 	public T NewTypeParameter(Action<TypeParameterBuilder> typeParameterBuilderAction) => (T)this.AddAction(typeParameters, new(), typeParameterBuilderAction);
 	
-	public T Body(Action<Body> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
+	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
 }
 
 public abstract class MethodBuilder
@@ -80,7 +84,7 @@ public abstract class MethodBuilder
 	internal TypeRef? returnTypeRef;
 	internal readonly List<ParameterBuilder> parameters = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
-	internal readonly List<Action<Body>> bodyActions = new();
+	internal readonly List<Action<BodyBuilder>> bodyActions = new();
 	
 	internal MethodAttributes visibility = MethodAttributes.Private;
 }
@@ -128,7 +132,8 @@ public sealed class TypeParameterBuilder
 
 public sealed class ParameterBuilder
 {
-	internal ParameterBuilder() {}
+	internal readonly Int16 index;
+	internal ParameterBuilder(Int16 index) => this.index = index;
 	
 	internal String? name;
 	public ParameterBuilder Name(String name) { this.name = name; return this; }

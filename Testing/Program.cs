@@ -8,8 +8,8 @@ var assembly = new AssemblyBuilder()
 		.Name("TestMethod")
 		.Public()
 		.ReturnType(typeof(Int32))
-		.NewParameter(x => x.Name("x").Type(typeof(Int32)))
-		.Body(x => x.Ldarg_0().Ldc_I4_2().Mul_Ovf().Ret())
+		.NewParameter(out var xParam, x => x.Name("x").Type(typeof(Int32)))
+		.Body(x => x.Ldarg(xParam).Ldc_I4_2().Mul_Ovf().Ret())
 	)
 	.Create();
 var module = assembly.Modules.Single(); //assembly.GetModule("TestModule") ?? throw new InvalidOperationException("no module");
