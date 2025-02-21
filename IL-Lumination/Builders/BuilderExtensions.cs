@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using static System.Reflection.Emit.AssemblyBuilderAccess;
@@ -22,11 +23,15 @@ public static class BuilderExtensions
 		if (String.IsNullOrEmpty(assemblyBuilder.name))
 			throw new InvalidOperationException("Saving an assembly requires a name.");
 		var ab = new Sre.PersistedAssemblyBuilder(new(assemblyBuilder.name), typeof(Object).Assembly);
-		assemblyBuilder.Build(ab);
-		ab.Save(path, assemblyBuilder.entryPoint?.Resolve());
+		assemblyBuilder.Build(ab, out var buildContext);
+		var entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.Resolve(ep) : null;
+		ab.Save(path, entryPoint);
 	}
 
-	private static void Build(this AssemblyBuilder assemblyBuilder, Sre.AssemblyBuilder ab)
+	private static void Build(
+		this AssemblyBuilder assemblyBuilder,
+		Sre.AssemblyBuilder ab,
+		out BuildContext buildContext)
 	{
 		var mb = ab.DefineDynamicModule("<Module>"); // only one module is allowed since .NET 5 (https://learn.microsoft.com/en-us/dotnet/api/system.reflection.emit.assemblybuilder.definedynamicmodule?view=net-5.0#:~:text=Remarks)
 		
@@ -102,5 +107,25 @@ public static class BuilderExtensions
 			eb.DefineLiteral(enumBuilderLiteral.name, enumBuilderLiteral.value);
 		}
 		return eb;
+	}
+
+	private sealed class BuildContext
+	{
+		public Dictionary<TypeBuilder, Type> TypeBuilderMap { get; } = new();
+		public Dictionary<MethodBuilder, MethodInfo> MethodBuilderMap { get; } = new();
+
+		public Type Resolve(TypeRef typeRef) => typeRef switch
+		{
+			TypeRef.Declared declared => declared.Type,
+			TypeRef.Builder builder => TypeBuilderMap[builder.TypeBuilder],
+			_ => throw new ArgumentOutOfRangeException(nameof(typeRef))
+		};
+
+		public MethodInfo Resolve(MethodRef methodRef) => methodRef switch
+		{
+			MethodRef.Declared declared => declared.MethodInfo,
+			MethodRef.Builder builder => MethodBuilderMap[builder.MethodBuilder],
+			_ => throw new ArgumentOutOfRangeException(nameof(methodRef))
+		};
 	}
 }
