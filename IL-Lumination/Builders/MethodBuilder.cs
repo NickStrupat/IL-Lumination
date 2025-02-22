@@ -14,7 +14,6 @@ public abstract class MethodBuilder
 	internal readonly List<ParameterBuilderBase> parameters = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();
-	
 }
 
 public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T>

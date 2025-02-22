@@ -62,7 +62,7 @@ public sealed class BodyBuilder : BodyBase<BodyBuilder>
 	private readonly Func<String, Int16?> parameterNameToIndexLookup;
 	internal BodyBuilder(ILGenerator ilGenerator, Func<String, Int16?> parameterNameToIndexLookup) : base(ilGenerator) => this.parameterNameToIndexLookup = parameterNameToIndexLookup;
 
-	public BodyBuilder Ldarg(ParameterBuilder parameter) => Ldarg(parameter.index);
+	public BodyBuilder Ldarg(ParameterBuilderBase parameter) => Ldarg(parameter.index);
 	public BodyBuilder Ldarg(String name) => Ldarg(parameterNameToIndexLookup(name) ?? throw new ArgumentException($"Parameter '{name}' not found", nameof(name)));
 }
 
