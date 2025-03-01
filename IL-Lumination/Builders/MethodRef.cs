@@ -1,4 +1,7 @@
+using System;
 using System.Reflection;
+using System.Reflection.Emit;
+using Sre = System.Reflection.Emit;
 
 namespace Illumination;
 

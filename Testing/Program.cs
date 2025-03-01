@@ -4,7 +4,7 @@ using Illumination;
 var assemblyBuilder = new AssemblyBuilder()
 	.Name("TestAssembly")
 	.NewType(x => x.Name("TestType"))
-	.NewEnum(x => x.Name("enum").Public()
+	.NewEnum<Byte>(x => x.Name("enum").Public()
 		.NewLiteral(x => x.Name("A").Value(0))
 		.NewLiteral(x => x.Name("B").Value(1))
 	)

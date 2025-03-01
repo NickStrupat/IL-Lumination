@@ -7,59 +7,88 @@ using Sre = System.Reflection.Emit;
 
 namespace Illumination;
 
-public enum AssemblyBuilderAccess { Run, Save }
-
 public static class BuilderExtensions
 {
 	public static Assembly Create(this AssemblyBuilder assemblyBuilder)
 	{
 		var ab = Sre.AssemblyBuilder.DefineDynamicAssembly(new(assemblyBuilder.name ?? Guid.NewGuid().ToString("N")), RunAndCollect);
-		assemblyBuilder.Build(ab);
+		assemblyBuilder.Build(ab, out _);
 		return ab;
 	}
 
-	public static void Save(this AssemblyBuilder assemblyBuilder, string path)
+	public static void Save(this AssemblyBuilder assemblyBuilder, String path)
 	{
 		if (String.IsNullOrEmpty(assemblyBuilder.name))
 			throw new InvalidOperationException("Saving an assembly requires a name.");
 		var ab = new Sre.PersistedAssemblyBuilder(new(assemblyBuilder.name), typeof(Object).Assembly);
-		assemblyBuilder.Build(ab, out var buildContext);
-		var entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.Resolve(ep) : null;
+		assemblyBuilder.Build(ab, out var entryPoint);
 		ab.Save(path, entryPoint);
 	}
 
 	private static void Build(
 		this AssemblyBuilder assemblyBuilder,
 		Sre.AssemblyBuilder ab,
-		out BuildContext buildContext)
+		out MethodInfo? entryPoint)
 	{
-		var mb = ab.DefineDynamicModule("<Module>"); // only one module is allowed since .NET 5 (https://learn.microsoft.com/en-us/dotnet/api/system.reflection.emit.assemblybuilder.definedynamicmodule?view=net-5.0#:~:text=Remarks)
+		var module = ab.DefineDynamicModule("<Module>"); // only one module is allowed since .NET 5 (https://learn.microsoft.com/en-us/dotnet/api/system.reflection.emit.assemblybuilder.definedynamicmodule?view=net-5.0#:~:text=Remarks)
+
+		var typez = assemblyBuilder.typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder.ToList();
+		typez.Sort((a, b) => a.dependencies.Count < b.dependencies.Count ? -1 : 1);
 		
-		foreach (var method in assemblyBuilder.methods)
+		var typeBuilderMap = DefineTypes(assemblyBuilder, module);
+		
+		BuildContext buildContext = new();
+		
+		foreach (var methodBuilder in assemblyBuilder.methods)
 		{
-			_ = method.Build((n, v, r, ps) => mb.DefineGlobalMethod(n, v, r, ps));
+			var mb = methodBuilder.Build(module);
+			buildContext.MethodBuilderMap.Add(methodBuilder, mb);
 		}
-		mb.CreateGlobalFunctions();
+		module.CreateGlobalFunctions();
 
 		foreach (var type in assemblyBuilder.types)
 		{
 			if (String.IsNullOrEmpty(type.name))
 				throw new InvalidOperationException("Types require a name.");
 			
-			var tb = mb.DefineType(type.name, type.visibility);
+			var tb = module.DefineType(type.name, type.visibility);
 
 			//type.Build(mb);
 			tb.CreateType();
 		}
 
-		foreach (var @enum in assemblyBuilder.enums)
-		{
-			var eb = @enum.Build((n, v, u) => mb.DefineEnum(n, v, u));
-			eb.CreateType();
-		}
+		// foreach (var @enum in assemblyBuilder.enums)
+		// {
+		// 	var eb = @enum.Build((n, v, u) => module.DefineEnum(n, v, u));
+		// 	eb.CreateType();
+		// }
+
+		entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.Resolve(ep) : null;
 	}
 
-	internal static MethodBuilder Build(this MethodBuilder methodBuilder, Func<String, MethodAttributes, Type, Type[], Sre.MethodBuilder> defineFunc)
+	private static IReadOnlyDictionary<TypeBuilder, Sre.TypeBuilder> DefineTypes(
+		AssemblyBuilder assemblyBuilder,
+		Sre.ModuleBuilder mb)
+	{
+		var typeBuilderMap = new Dictionary<TypeBuilder, Sre.TypeBuilder>();
+
+		foreach (var type in assemblyBuilder.types)
+		{
+			
+		}
+		
+		return typeBuilderMap;
+
+		// void DefineTypesInternal(IHasTypeBuilderDependenciess hasTypeBuilders, TypeDefiner typeDefiner)
+		// {
+		// 	foreach (var typeBuilder in hasTypeBuilders.TypeBuilders)
+		// 	{
+		// 		typeDefiner.Define()
+		// 	}
+		// }
+	}
+
+	internal static Sre.MethodBuilder Build(this MethodBuilder methodBuilder, MethodDefiner methodDefiner)
 	{
 		if (String.IsNullOrEmpty(methodBuilder.name))
 			throw new InvalidOperationException("Methods require a name.");
@@ -68,7 +97,7 @@ public static class BuilderExtensions
 			if (parameterBuilder.typeRef == null)
 				throw new InvalidOperationException("Parameters require a type.");
 		}
-		var mb = defineFunc(
+		var mb = methodDefiner.Define(
 			methodBuilder.name!,
 			methodBuilder.visibility | MethodAttributes.Static,
 			methodBuilder.returnTypeRef!.Resolve(),
@@ -85,7 +114,7 @@ public static class BuilderExtensions
 
 		methodBuilder.bodyActions.ForEach(a => a.Invoke(body));
 
-		return methodBuilder;
+		return mb;
 	}
 
 	internal static Sre.TypeBuilder Build(this TypeBuilder typeBuilder)
@@ -111,8 +140,24 @@ public static class BuilderExtensions
 
 	private sealed class BuildContext
 	{
-		public Dictionary<TypeBuilder, Type> TypeBuilderMap { get; } = new();
-		public Dictionary<MethodBuilder, MethodInfo> MethodBuilderMap { get; } = new();
+		public Queue<TypeBuilder> TypeQueue { get; } = new();
+		public Queue<MethodBuilder> MethodQueue { get; } = new();
+		public Dictionary<TypeBuilder, Sre.TypeBuilder> TypeBuilderMap { get; } = new();
+		public Dictionary<MethodBuilder, Sre.MethodBuilder> MethodBuilderMap { get; } = new();
+		
+		public Maybe<Type> TryResolve(TypeRef typeRef) => typeRef switch
+		{
+			TypeRef.Declared declared => new(declared.Type),
+			TypeRef.Builder builder => new(TypeBuilderMap[builder.TypeBuilder]),
+			_ => new()
+		};
+		
+		public Maybe<MethodInfo> TryResolve(MethodRef methodRef) => methodRef switch
+		{
+			MethodRef.Declared declared => new(declared.MethodInfo),
+			MethodRef.Builder builder => new(MethodBuilderMap[builder.MethodBuilder]),
+			_ => new()
+		};
 
 		public Type Resolve(TypeRef typeRef) => typeRef switch
 		{
@@ -128,4 +173,41 @@ public static class BuilderExtensions
 			_ => throw new ArgumentOutOfRangeException(nameof(methodRef))
 		};
 	}
+	
+	internal sealed class MethodDefiner
+	{
+		public static implicit operator MethodDefiner(Sre.ModuleBuilder x) => new(x.DefineGlobalMethod);
+		public static implicit operator MethodDefiner(Sre.TypeBuilder x) => new(x.DefineMethod);
+	
+		public delegate Sre.MethodBuilder Definer(String name, MethodAttributes attributes, Type returnType, Type[] parameterTypes);
+		
+		public Definer Define { get; }
+	
+		private MethodDefiner(Definer define) => Define = define;
+	}
+
+	internal sealed class TypeDefiner
+	{
+		public static implicit operator TypeDefiner(Sre.ModuleBuilder x) => new(x.DefineType);
+		public static implicit operator TypeDefiner(Sre.TypeBuilder x) => new(x.DefineNestedType);
+	
+		public delegate Sre.TypeBuilder Definer(String name, TypeAttributes attributes, Type? baseType, Type[]? interfaces);
+		
+		public Definer Define { get; }
+		
+		private TypeDefiner(Definer define) => Define = define;
+	}
+}
+
+internal static class TypeRefExtensions
+{
+	public static Type Resolve(this TypeRef typeRef, IReadOnlyDictionary<TypeBuilder, Sre.TypeBuilder> typeBuilderMap) => typeRef switch
+	{
+		TypeRef.Declared declared => declared.Type,
+		TypeRef.Builder builder => typeBuilderMap[builder.TypeBuilder],
+		_ => throw new ArgumentOutOfRangeException(nameof(typeRef))
+	};
+	
+	public static IEnumerable<TypeBuilder> AsTypeBuilders(this TypeRef? tr) => tr is TypeRef.Builder(var tb) ? [tb] : [];
+	public static IEnumerable<TypeBuilder> AsTypeBuilders(this IEnumerable<TypeRef> trs) => trs.SelectMany(x => x.AsTypeBuilders());
 }

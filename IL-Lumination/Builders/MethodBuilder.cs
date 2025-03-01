@@ -26,27 +26,18 @@ public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T
 	public T ReturnType<TReturn>() => ReturnType(typeof(TReturn));
 	public T ReturnType(TypeBuilder returnTypeBuilder) { this.returnTypeRef = returnTypeBuilder; return (T)this; }
 
-	public T NewParameter(out ParameterBuilder parameterBuilder, Action<ParameterBuilder> parameterBuilderAction)
-	{
-		parameterBuilder = new((Int16)parameters.Count);
-		parameters.Add(parameterBuilder);
-		parameterBuilderAction(parameterBuilder);
-		return (T)this;
-	}
+	public T NewParameter(out ParameterBuilder parameterBuilder, Action<ParameterBuilder> parameterBuilderAction) =>
+		(T)this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
 	public T NewParameter(out ParameterBuilder parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
 	public T NewParameter(Action<ParameterBuilder> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
 	
-	public T NewParameter<TParam>(out ParameterBuilder<T> parameterBuilder, Action<ParameterBuilder<T>> parameterBuilderAction)
-	{
-		parameterBuilder = new((Int16)parameters.Count);
-		parameters.Add(parameterBuilder);
-		parameterBuilderAction(parameterBuilder);
-		return (T)this;
-	}
-	public T NewParameter<TParam>(out ParameterBuilder<T> parameterBuilder) => NewParameter<TParam>(out parameterBuilder, _ => {});
-	public T NewParameter<TParam>(Action<ParameterBuilder<T>> parameterBuilderAction) => NewParameter<TParam>(out _, parameterBuilderAction);
+	public T NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder, Action<ParameterBuilder<TParam>> parameterBuilderAction) =>
+		(T)this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
+	public T NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
+	public T NewParameter<TParam>(Action<ParameterBuilder<TParam>> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
 	
-	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder, Action<TypeParameterBuilder> typeParameterBuilderAction) => (T)this.AddAction(typeParameters, typeParameterBuilder = new(), typeParameterBuilderAction);
+	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder, Action<TypeParameterBuilder> typeParameterBuilderAction) =>
+		(T)this.AddAction(typeParameters, typeParameterBuilder = new(), typeParameterBuilderAction);
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => NewTypeParameter(out typeParameterBuilder, _ => {});
 	public T NewTypeParameter(Action<TypeParameterBuilder> typeParameterBuilderAction) => NewTypeParameter(out _, typeParameterBuilderAction);
 	
@@ -55,7 +46,8 @@ public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T
 
 public sealed class GlobalMethodBuilder : MethodBuilder<GlobalMethodBuilder>
 {
-	internal GlobalMethodBuilder() : base(MethodAttributes.Private) {}
+	internal GlobalMethodBuilder(AssemblyBuilder assemblyBuilder) : base(MethodAttributes.Private) => this.assemblyBuilder = assemblyBuilder;
+	internal readonly AssemblyBuilder assemblyBuilder;
 
 	public GlobalMethodBuilder Assembly() { this.visibility = MethodAttributes.Private; return this; }
 	public GlobalMethodBuilder Public() { this.visibility = MethodAttributes.Public; return this; }

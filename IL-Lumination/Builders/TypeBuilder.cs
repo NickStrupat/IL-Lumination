@@ -1,39 +1,97 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace Illumination;
 
 public abstract class TypeBuilder
 {
-	private protected TypeBuilder(TypeAttributes visibility) => this.visibility = visibility;
+	private protected readonly AssemblyBuilder assemblyBuilder; 
+	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility)
+	{
+		this.assemblyBuilder = assemblyBuilder; 
+		this.visibility = visibility;
+	}
 
 	internal String? name { get; private protected set; }
 	internal TypeAttributes visibility { get; private protected set; }
-	internal TypeRef? baseTypeRef { get; private protected set; }
-	internal readonly List<TypeRef> interfaces = new();
+	internal TypeRef? baseTypeRef { get; private set; }
+	
+	private readonly List<TypeRef> interfacesInternal = new();
+	internal IReadOnlyList<TypeRef> interfaces => interfacesInternal;
+	
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<FieldBuilder> fields = new();
 	internal readonly List<PropertyBuilder> properties = new();
 	internal readonly List<NestedTypeBuilder> types = new();
 	internal readonly List<NestedEnumBuilder> enums = new();
 	internal readonly List<NestedMethodBuilder> methods = new();
+	
+	private readonly HashSet<TypeBuilder> dependenciesInternal = new();
+	private readonly HashSet<TypeBuilder> dependentsInternal = new();
+	internal IReadOnlySet<TypeBuilder> dependencies => dependenciesInternal;
+	internal IReadOnlySet<TypeBuilder> dependents => dependentsInternal;
+
+	private protected TypeBuilder SetBaseTypeRef(TypeRef typeRef)
+	{
+		var oldDependencyCount = dependencies.Count;
+		
+		if (baseTypeRef is TypeRef.Builder { TypeBuilder: {} currentDependency })
+		{
+			dependenciesInternal.Remove(currentDependency);
+			currentDependency.dependentsInternal.Remove(this);
+		}
+
+		if (typeRef is TypeRef.Builder { TypeBuilder: { } newDependency })
+		{
+			dependenciesInternal.Add(newDependency);
+			newDependency.dependentsInternal.Add(this);
+		}
+		
+		var set = assemblyBuilder.typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder;
+		if (oldDependencyCount != 0 && dependencies.Count == 0)
+			set.Remove(this);
+		else if (oldDependencyCount == 0 && dependencies.Count == 1)
+			set.Add(this);
+
+		baseTypeRef = typeRef;
+		return this;
+	}
+	
+	private protected TypeBuilder AddInterface(TypeRef typeRef)
+	{
+		var oldDependencyCount = dependencies.Count;
+		
+		if (typeRef is TypeRef.Builder { TypeBuilder: { } newDependency })
+		{
+			dependenciesInternal.Add(newDependency);
+			newDependency.dependentsInternal.Add(this);
+		}
+		
+		var set = assemblyBuilder.typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder;
+		if (oldDependencyCount == 0 && dependencies.Count == 1)
+			set.Add(this);
+
+		interfacesInternal.Add(typeRef);
+		return this; 
+	}
 }
 
 public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 {
-	private protected TypeBuilder(TypeAttributes visibility) : base(visibility) {}
+	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility) : base(assemblyBuilder, visibility) {}
 	
 	public T Name(String name) { this.name = name; return (T)this; }
 	
-	public T BaseType(Type type) { this.baseTypeRef = type; return (T)this; }
+	public T BaseType(Type type) => (T)SetBaseTypeRef(type);
 	public T BaseType<TBase>() => this.BaseType(typeof(TBase));
-	public T BaseType(TypeBuilder typeBuilder) { this.baseTypeRef = typeBuilder; return (T)this; }
-	
-	public T AddInterface(Type type) { this.interfaces.Add(type); return (T)this; }
+	public T BaseType(TypeBuilder typeBuilder) => (T)SetBaseTypeRef(typeBuilder);
+
+	public T AddInterface(Type type) => (T)base.AddInterface(type);
 	public T AddInterface<TInterface>() => this.AddInterface(typeof(TInterface));
-	public T AddInterface(TypeBuilder typeBuilder) { this.interfaces.Add(typeBuilder); return (T)this; }
-	
+	public T AddInterface(TypeBuilder typeBuilder) => (T)base.AddInterface(typeBuilder);
+
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder, Action<TypeParameterBuilder> builderAction) => (T)this.AddAction(typeParameters, typeParameterBuilder = new(), builderAction);
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => NewTypeParameter(out typeParameterBuilder, _ => {});
 	public T NewTypeParameter(Action<TypeParameterBuilder> builderAction) => NewTypeParameter(out _, builderAction);
@@ -54,14 +112,14 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	public T NewEnum(out NestedEnumBuilder nestedEnumBuilder) => NewEnum(out nestedEnumBuilder, _ => {});
 	public T NewEnum(Action<NestedEnumBuilder> action) => NewEnum(out _, action);
 	
-	public T NewType(out NestedTypeBuilder nestedTypeBuilder, Action<NestedTypeBuilder> builderAction) => (T)this.AddAction(types, nestedTypeBuilder = new(), builderAction);
+	public T NewType(out NestedTypeBuilder nestedTypeBuilder, Action<NestedTypeBuilder> builderAction) => (T)this.AddAction(types, nestedTypeBuilder = new(assemblyBuilder), builderAction);
 	public T NewType(out NestedTypeBuilder nestedTypeBuilder) => NewType(out nestedTypeBuilder, _ => {});
 	public T NewType(Action<NestedTypeBuilder> builderAction) => NewType(out _, builderAction);
 }
 
 public sealed class GlobalTypeBuilder : TypeBuilder<GlobalTypeBuilder>
 {
-	internal GlobalTypeBuilder() : base(TypeAttributes.NotPublic) {}
+	internal GlobalTypeBuilder(AssemblyBuilder assemblyBuilder) : base(assemblyBuilder, TypeAttributes.NotPublic) {}
 
 	public GlobalTypeBuilder Assembly() { this.visibility = TypeAttributes.NotPublic; return this; }
 	public GlobalTypeBuilder Public() { this.visibility = TypeAttributes.Public; return this; }
@@ -69,7 +127,7 @@ public sealed class GlobalTypeBuilder : TypeBuilder<GlobalTypeBuilder>
 
 public sealed class NestedTypeBuilder : TypeBuilder<NestedTypeBuilder>
 {
-	internal NestedTypeBuilder() : base(TypeAttributes.NestedPrivate) {}
+	internal NestedTypeBuilder(AssemblyBuilder assemblyBuilder) : base(assemblyBuilder, TypeAttributes.NestedPrivate) {}
 
 	public NestedTypeBuilder Private() { this.visibility = TypeAttributes.NestedPrivate; return this; }
 	public NestedTypeBuilder Family() { this.visibility = TypeAttributes.NestedFamily; return this; }
