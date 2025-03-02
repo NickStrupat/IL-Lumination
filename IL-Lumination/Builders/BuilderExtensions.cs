@@ -35,38 +35,31 @@ public static class BuilderExtensions
 		var typez = assemblyBuilder.typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder.ToList();
 		typez.Sort((a, b) => a.dependencies.Count < b.dependencies.Count ? -1 : 1);
 		
-		var typeBuilderMap = DefineTypes(assemblyBuilder, module);
+		var tbl = DefineAllTypes(assemblyBuilder, module);
 		
 		BuildContext buildContext = new();
 		
 		foreach (var methodBuilder in assemblyBuilder.methods)
 		{
-			var mb = methodBuilder.Build(module);
+			var mb = methodBuilder.Build(module, tbl);
 			buildContext.MethodBuilderMap.Add(methodBuilder, mb);
 		}
 		module.CreateGlobalFunctions();
 
 		foreach (var type in assemblyBuilder.types)
 		{
-			if (String.IsNullOrEmpty(type.name))
-				throw new InvalidOperationException("Types require a name.");
-			
-			var tb = module.DefineType(type.name, type.visibility);
-
-			//type.Build(mb);
-			tb.CreateType();
+			type.Build(tbl);
 		}
 
-		// foreach (var @enum in assemblyBuilder.enums)
-		// {
-		// 	var eb = @enum.Build((n, v, u) => module.DefineEnum(n, v, u));
-		// 	eb.CreateType();
-		// }
+		foreach (var @enum in assemblyBuilder.enums)
+		{
+			@enum.Build(module);
+		}
 
 		entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.Resolve(ep) : null;
 	}
 
-	private static IReadOnlyDictionary<TypeBuilder, Sre.TypeBuilder> DefineTypes(
+	private static TypeBuilderLookup DefineAllTypes(
 		AssemblyBuilder assemblyBuilder,
 		Sre.ModuleBuilder mb)
 	{
@@ -74,21 +67,23 @@ public static class BuilderExtensions
 
 		foreach (var type in assemblyBuilder.types)
 		{
-			
+			DefineTypesInternal(type, mb);
 		}
 		
-		return typeBuilderMap;
+		return new(typeBuilderMap);
 
-		// void DefineTypesInternal(IHasTypeBuilderDependenciess hasTypeBuilders, TypeDefiner typeDefiner)
-		// {
-		// 	foreach (var typeBuilder in hasTypeBuilders.TypeBuilders)
-		// 	{
-		// 		typeDefiner.Define()
-		// 	}
-		// }
+		void DefineTypesInternal(TypeBuilder typeBuilder, TypeDefiner typeDefiner)
+		{
+			var tb = typeDefiner.Define(typeBuilder.name!, typeBuilder.visibility);
+			typeBuilderMap.Add(typeBuilder, tb);
+			foreach (var nestedTypeBuilder in typeBuilder.types)
+			{
+				DefineTypesInternal(nestedTypeBuilder, tb);
+			}
+		}
 	}
 
-	internal static Sre.MethodBuilder Build(this MethodBuilder methodBuilder, MethodDefiner methodDefiner)
+	internal static Sre.MethodBuilder Build(this MethodBuilder methodBuilder, MethodDefiner methodDefiner, TypeBuilderLookup tbl)
 	{
 		if (String.IsNullOrEmpty(methodBuilder.name))
 			throw new InvalidOperationException("Methods require a name.");
@@ -99,10 +94,10 @@ public static class BuilderExtensions
 		}
 		var mb = methodDefiner.Define(
 			methodBuilder.name!,
-			methodBuilder.visibility | MethodAttributes.Static,
-			methodBuilder.returnTypeRef!.Resolve(),
-			methodBuilder.parameters.Select(x => x.typeRef!.Resolve()).ToArray()
+			methodBuilder.visibility | MethodAttributes.Static
 		);
+		mb.SetReturnType(methodBuilder.returnTypeRef!.Resolve(tbl));
+		mb.SetParameters(methodBuilder.parameters.Select(x => x.typeRef!.Resolve(tbl)).ToArray());
 		for (var index = 0; index < methodBuilder.parameters.Count; index++)
 		{
 			var pb = mb.DefineParameter(index + 1, ParameterAttributes.None, methodBuilder.parameters[index].name);
@@ -111,31 +106,44 @@ public static class BuilderExtensions
 		var dictionary = methodBuilder.parameters.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
 		Int16? ParameterLookup(String s) => dictionary.TryGetValue(s, out var index) ? index : null;
 		var body = new BodyBuilder(mb.GetILGenerator(), ParameterLookup);
-
 		methodBuilder.bodyActions.ForEach(a => a.Invoke(body));
 
 		return mb;
 	}
 
-	internal static Sre.TypeBuilder Build(this TypeBuilder typeBuilder)
+	private static void Build(this TypeBuilder typeBuilder, TypeBuilderLookup tbl)
 	{
-		throw new NotImplementedException();
+		if (String.IsNullOrEmpty(typeBuilder.name))
+			throw new InvalidOperationException("Types require a name.");
+		var tb = tbl[typeBuilder];
+		
+		if (typeBuilder.baseTypeRef is {} btr)
+			tb.SetParent(btr.Resolve(tbl));
+		foreach (var interfaceBuilder in typeBuilder.interfaces)
+			tb.AddInterfaceImplementation(interfaceBuilder.Resolve(tbl));
+		// foreach (var enumBuilder in typeBuilder.enums)
+		// 	enumBuilder.Build(tb, tbl);
+		
+		tb.CreateType();
 	}
 
-	internal static Sre.EnumBuilder Build(this GlobalEnumBuilder enumBuilder, Func<String, TypeAttributes, Type, Sre.EnumBuilder> defineFunc)
+	internal static void Build(this EnumBuilder enumBuilder, TypeDefiner typeDefiner)
 	{
 		if (String.IsNullOrEmpty(enumBuilder.name))
 			throw new InvalidOperationException("Enums require a name.");
-		var eb = defineFunc(enumBuilder.name!, enumBuilder.visibility, enumBuilder.underlyingTypeRef.Resolve());
+		var eb = typeDefiner.Define(enumBuilder.name!, enumBuilder.visibility | TypeAttributes.Sealed);
+		eb.SetParent(typeof(Enum));
+		eb.DefineField("value__", enumBuilder.underlyingType, FieldAttributes.Private | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName);
 		foreach (var enumBuilderLiteral in enumBuilder.literals)
 		{
 			if (String.IsNullOrEmpty(enumBuilderLiteral.name))
 				throw new InvalidOperationException("Enum literals require a name.");
 			if (enumBuilderLiteral.value == null)
 				throw new InvalidOperationException("Enum literals require a value.");
-			eb.DefineLiteral(enumBuilderLiteral.name, enumBuilderLiteral.value);
+			var fb = eb.DefineField(enumBuilderLiteral.name, eb, FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal);
+			fb.SetConstant(enumBuilderLiteral.value);
 		}
-		return eb;
+		eb.CreateType();
 	}
 
 	private sealed class BuildContext
@@ -176,10 +184,10 @@ public static class BuilderExtensions
 	
 	internal sealed class MethodDefiner
 	{
-		public static implicit operator MethodDefiner(Sre.ModuleBuilder x) => new(x.DefineGlobalMethod);
+		public static implicit operator MethodDefiner(Sre.ModuleBuilder x) => new((name, attributes) => x.DefineGlobalMethod(name, attributes, null, null));
 		public static implicit operator MethodDefiner(Sre.TypeBuilder x) => new(x.DefineMethod);
 	
-		public delegate Sre.MethodBuilder Definer(String name, MethodAttributes attributes, Type returnType, Type[] parameterTypes);
+		public delegate Sre.MethodBuilder Definer(String name, MethodAttributes attributes);
 		
 		public Definer Define { get; }
 	
@@ -191,20 +199,26 @@ public static class BuilderExtensions
 		public static implicit operator TypeDefiner(Sre.ModuleBuilder x) => new(x.DefineType);
 		public static implicit operator TypeDefiner(Sre.TypeBuilder x) => new(x.DefineNestedType);
 	
-		public delegate Sre.TypeBuilder Definer(String name, TypeAttributes attributes, Type? baseType, Type[]? interfaces);
+		public delegate Sre.TypeBuilder Definer(String name, TypeAttributes attributes);
 		
 		public Definer Define { get; }
 		
 		private TypeDefiner(Definer define) => Define = define;
 	}
+
+	internal readonly struct TypeBuilderLookup(IReadOnlyDictionary<TypeBuilder, Sre.TypeBuilder> map)
+	{
+		private readonly IReadOnlyDictionary<TypeBuilder, Sre.TypeBuilder> map = map;
+		public Sre.TypeBuilder this[TypeBuilder typeBuilder] => map[typeBuilder];
+	}
 }
 
 internal static class TypeRefExtensions
 {
-	public static Type Resolve(this TypeRef typeRef, IReadOnlyDictionary<TypeBuilder, Sre.TypeBuilder> typeBuilderMap) => typeRef switch
+	public static Type Resolve(this TypeRef typeRef, BuilderExtensions.TypeBuilderLookup tbl) => typeRef switch
 	{
 		TypeRef.Declared declared => declared.Type,
-		TypeRef.Builder builder => typeBuilderMap[builder.TypeBuilder],
+		TypeRef.Builder builder => tbl[builder.TypeBuilder],
 		_ => throw new ArgumentOutOfRangeException(nameof(typeRef))
 	};
 	

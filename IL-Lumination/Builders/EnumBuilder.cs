@@ -8,11 +8,15 @@ namespace Illumination;
 
 public abstract class EnumBuilder
 {
-	private protected EnumBuilder(TypeAttributes visibility) => this.visibility = visibility;
+	private protected EnumBuilder(TypeAttributes visibility, Type underlyingType)
+	{
+		this.visibility = visibility;
+		this.underlyingType = underlyingType;
+	}
 
 	internal String? name { get; private protected set; }
 	internal TypeAttributes visibility { get; private protected set; }
-	internal TypeRef underlyingTypeRef { get; private protected set; } = typeof(Int32);
+	internal Type underlyingType { get; private protected set; }
 	internal readonly List<EnumLiteralBuilderBase> literals = new();
 	
 	private protected static readonly Type[] validUnderlyingTypes = [typeof(Byte), typeof(SByte), typeof(UInt16), typeof(Int16), typeof(UInt32), typeof(Int32), typeof(UInt64), typeof(Int64)];
@@ -20,7 +24,7 @@ public abstract class EnumBuilder
 
 public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 {
-	private protected EnumBuilder(TypeAttributes visibility) : base(visibility) {}
+	private protected EnumBuilder(TypeAttributes visibility) : base(visibility, typeof(Int32)) {}
 	
 	public T Name(String name) { this.name = name; return (T)this; }
 
@@ -28,10 +32,9 @@ public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 	{
 		if (Array.IndexOf(validUnderlyingTypes, underlyingType) < 0)
 			throw new ArgumentException($"Invalid underlying type `{underlyingType.Name}`. Must be one of `{String.Join("`, `", validUnderlyingTypes.Select(x => x.Name))}`.", nameof(underlyingType));
-		this.underlyingTypeRef = underlyingType; return (T)this;
+		this.underlyingType = underlyingType; return (T)this;
 	}
 	public T UnderlyingType<TUnderlying>() where TUnderlying : unmanaged, IBinaryInteger<TUnderlying> => this.UnderlyingType(typeof(TUnderlying));
-	public T UnderlyingType(TypeBuilder underlyingTypeBuilder) { this.underlyingTypeRef = underlyingTypeBuilder; return (T)this; }
 
 	public T NewLiteral(out EnumLiteralBuilder enumLiteralBuilder, Action<EnumLiteralBuilder> action) =>
 		(T)this.AddAction(literals.AsContravariant(), enumLiteralBuilder = new(), action);
@@ -41,7 +44,7 @@ public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 
 public abstract class EnumBuilder<T, TUnderlying> : EnumBuilder where T : EnumBuilder<T, TUnderlying> where TUnderlying : struct, IBinaryInteger<TUnderlying>
 {
-	private protected EnumBuilder(TypeAttributes visibility) : base(visibility) {}
+	private protected EnumBuilder(TypeAttributes visibility) : base(visibility, typeof(TUnderlying)) {}
 	
 	public T Name(String name) { this.name = name; return (T)this; }
 
