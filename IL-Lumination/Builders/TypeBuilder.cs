@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
-public abstract class TypeBuilder
+public abstract class TypeBuilder : IHasTypesAndMethods
 {
 	private protected readonly AssemblyBuilder assemblyBuilder; 
 	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility)
@@ -16,66 +15,18 @@ public abstract class TypeBuilder
 
 	internal String? name { get; private protected set; }
 	internal TypeAttributes visibility { get; private protected set; }
-	internal TypeRef? baseTypeRef { get; private set; }
+	internal TypeRef? baseTypeRef { get; private protected set; }
 	
-	private readonly List<TypeRef> interfacesInternal = new();
-	internal IReadOnlyList<TypeRef> interfaces => interfacesInternal;
-	
+	internal readonly List<TypeRef> interfaces = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<FieldBuilder> fields = new();
 	internal readonly List<PropertyBuilder> properties = new();
 	internal readonly List<NestedTypeBuilder> types = new();
 	internal readonly List<NestedEnumBuilder> enums = new();
 	internal readonly List<NestedMethodBuilder> methods = new();
-	
-	private readonly HashSet<TypeBuilder> dependenciesInternal = new();
-	private readonly HashSet<TypeBuilder> dependentsInternal = new();
-	internal IReadOnlySet<TypeBuilder> dependencies => dependenciesInternal;
-	internal IReadOnlySet<TypeBuilder> dependents => dependentsInternal;
 
-	private protected TypeBuilder SetBaseTypeRef(TypeRef typeRef)
-	{
-		var oldDependencyCount = dependencies.Count;
-		
-		if (baseTypeRef is TypeRef.Builder { TypeBuilder: {} currentDependency })
-		{
-			dependenciesInternal.Remove(currentDependency);
-			currentDependency.dependentsInternal.Remove(this);
-		}
-
-		if (typeRef is TypeRef.Builder { TypeBuilder: { } newDependency })
-		{
-			dependenciesInternal.Add(newDependency);
-			newDependency.dependentsInternal.Add(this);
-		}
-		
-		var set = assemblyBuilder.typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder;
-		if (oldDependencyCount != 0 && dependencies.Count == 0)
-			set.Remove(this);
-		else if (oldDependencyCount == 0 && dependencies.Count == 1)
-			set.Add(this);
-
-		baseTypeRef = typeRef;
-		return this;
-	}
-	
-	private protected TypeBuilder AddInterface(TypeRef typeRef)
-	{
-		var oldDependencyCount = dependencies.Count;
-		
-		if (typeRef is TypeRef.Builder { TypeBuilder: { } newDependency })
-		{
-			dependenciesInternal.Add(newDependency);
-			newDependency.dependentsInternal.Add(this);
-		}
-		
-		var set = assemblyBuilder.typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder;
-		if (oldDependencyCount == 0 && dependencies.Count == 1)
-			set.Add(this);
-
-		interfacesInternal.Add(typeRef);
-		return this; 
-	}
+	IEnumerable<TypeBuilder> IHasTypesAndMethods.Types => types;
+	IEnumerable<MethodBuilder> IHasTypesAndMethods.Methods => methods;
 }
 
 public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
@@ -84,13 +35,13 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	
 	public T Name(String name) { this.name = name; return (T)this; }
 	
-	public T BaseType(Type type) => (T)SetBaseTypeRef(type);
+	public T BaseType(Type type) { this.baseTypeRef = type; return (T)this; }
 	public T BaseType<TBase>() => this.BaseType(typeof(TBase));
-	public T BaseType(TypeBuilder typeBuilder) => (T)SetBaseTypeRef(typeBuilder);
+	public T BaseType(TypeBuilder typeBuilder) { this.baseTypeRef = typeBuilder; return (T)this; }
 
-	public T AddInterface(Type type) => (T)base.AddInterface(type);
+	public T AddInterface(Type type) { this.interfaces.Add(type); return (T)this; }
 	public T AddInterface<TInterface>() => this.AddInterface(typeof(TInterface));
-	public T AddInterface(TypeBuilder typeBuilder) => (T)base.AddInterface(typeBuilder);
+	public T AddInterface(TypeBuilder typeBuilder) { this.interfaces.Add(typeBuilder); return (T)this; }
 
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder, Action<TypeParameterBuilder> builderAction) => (T)this.AddAction(typeParameters, typeParameterBuilder = new(), builderAction);
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => NewTypeParameter(out typeParameterBuilder, _ => {});

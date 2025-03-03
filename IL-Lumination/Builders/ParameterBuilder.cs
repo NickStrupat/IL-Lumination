@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 public sealed class ParameterBuilder : ParameterBuilderBase<ParameterBuilder>
 {
@@ -22,6 +21,7 @@ public abstract class ParameterBuilderBase<T> : ParameterBuilderBase where T : P
 	
 	public T Name(String name) { this.name = name; return (T)this; }
 }
+
 public abstract class ParameterBuilderBase
 {
 	internal readonly Int16 index;
@@ -29,10 +29,4 @@ public abstract class ParameterBuilderBase
 	
 	internal String? name { get; private protected set; }
 	internal TypeRef? typeRef { get; private protected set; }
-	
-	public IEnumerable<TypeBuilder> GetTypeBuilders()
-	{
-		if (typeRef is TypeRef.Builder builder)
-			yield return builder.TypeBuilder;
-	}
 }

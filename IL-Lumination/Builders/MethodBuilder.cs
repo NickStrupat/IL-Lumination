@@ -2,26 +2,32 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 public abstract class MethodBuilder
 {
-	private protected MethodBuilder(MethodAttributes visibility) => this.visibility = visibility;
-	
+	private protected MethodBuilder(MethodAttributes visibility, MethodAttributes storageType)
+	{
+		this.visibility = visibility;
+		this.storageType = storageType;
+	}
+
 	internal String? name { get; private protected set; }
 	internal MethodAttributes visibility { get; private protected set; }
+	internal MethodAttributes storageType { get; private protected set; }
 	internal TypeRef? returnTypeRef { get; private protected set; }
 	internal readonly List<ParameterBuilderBase> parameters = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();
+	internal readonly List<LocalBuilderBase> locals = new();
 }
 
 public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T>
 {
-	private protected MethodBuilder(MethodAttributes visibility) : base(visibility) {}
+	private protected MethodBuilder(MethodAttributes visibility, MethodAttributes storageType) : base(visibility, storageType) {}
 	
 	public T Name(String name) { this.name = name; return (T)this; }
-	
+
 	public T ReturnType(Type returnType) { this.returnTypeRef = returnType; return (T)this; }
 	public T ReturnType<TReturn>() => ReturnType(typeof(TReturn));
 	public T ReturnType(TypeBuilder returnTypeBuilder) { this.returnTypeRef = returnTypeBuilder; return (T)this; }
@@ -41,12 +47,22 @@ public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => NewTypeParameter(out typeParameterBuilder, _ => {});
 	public T NewTypeParameter(Action<TypeParameterBuilder> typeParameterBuilderAction) => NewTypeParameter(out _, typeParameterBuilderAction);
 	
+	public T NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
+	public T NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
+	public T NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
+	
+	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
+	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
+	public T NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
+	
+	
+	
 	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
 }
 
 public sealed class GlobalMethodBuilder : MethodBuilder<GlobalMethodBuilder>
 {
-	internal GlobalMethodBuilder(AssemblyBuilder assemblyBuilder) : base(MethodAttributes.Private) => this.assemblyBuilder = assemblyBuilder;
+	internal GlobalMethodBuilder(AssemblyBuilder assemblyBuilder) : base(MethodAttributes.Private, MethodAttributes.Static) => this.assemblyBuilder = assemblyBuilder;
 	internal readonly AssemblyBuilder assemblyBuilder;
 
 	public GlobalMethodBuilder Assembly() { this.visibility = MethodAttributes.Private; return this; }
@@ -55,7 +71,7 @@ public sealed class GlobalMethodBuilder : MethodBuilder<GlobalMethodBuilder>
 
 public sealed class NestedMethodBuilder : MethodBuilder<NestedMethodBuilder>
 {
-	internal NestedMethodBuilder() : base(MethodAttributes.Private) {}
+	internal NestedMethodBuilder() : base(MethodAttributes.Private, default) {}
 	
 	public NestedMethodBuilder Private() { this.visibility = MethodAttributes.Private; return this; }
 	public NestedMethodBuilder Family() { this.visibility = MethodAttributes.Family; return this; }
@@ -64,7 +80,6 @@ public sealed class NestedMethodBuilder : MethodBuilder<NestedMethodBuilder>
 	public NestedMethodBuilder Assembly() { this.visibility = MethodAttributes.Assembly; return this; }
 	public NestedMethodBuilder Public() { this.visibility = MethodAttributes.Public; return this; }
 	
-	internal MethodAttributes instantiation;
-	public NestedMethodBuilder Static() { this.instantiation = MethodAttributes.Static; return this; }
-	public NestedMethodBuilder NonStatic() { this.instantiation = default; return this; }
+	public NestedMethodBuilder Static() { this.storageType = MethodAttributes.Static; return this; }
+	public NestedMethodBuilder NonStatic() { this.storageType = default; return this; }
 }

@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 public sealed class EnumLiteralBuilder : EnumLiteralBuilderBase<EnumLiteralBuilder>
 {

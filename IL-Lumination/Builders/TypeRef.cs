@@ -1,6 +1,6 @@
 using System;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 internal abstract record TypeRef
 {

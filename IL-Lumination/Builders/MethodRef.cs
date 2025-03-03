@@ -1,9 +1,6 @@
-using System;
 using System.Reflection;
-using System.Reflection.Emit;
-using Sre = System.Reflection.Emit;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 internal abstract record MethodRef
 {

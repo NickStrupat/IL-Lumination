@@ -4,7 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 public abstract class EnumBuilder
 {

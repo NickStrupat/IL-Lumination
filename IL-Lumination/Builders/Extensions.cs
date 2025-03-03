@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 internal static class Extensions
 {

@@ -2,23 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Reflection;
-using System.Runtime.InteropServices;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
-internal sealed class TypeBuilderDependencies
+internal interface IHasTypesAndMethods
 {
-	public readonly List<TypeBuilder> typeBuildersWithNoDependencies = new();
-	private readonly Dictionary<TypeBuilder, Int32> counts = new();
-	
-	public void AddDependency(TypeBuilder dependent, TypeBuilder dependency) =>
-		CollectionsMarshal.GetValueRefOrAddDefault(counts, dependent, out _)++;
+	IEnumerable<TypeBuilder> Types { get; }
+	IEnumerable<MethodBuilder> Methods { get; }
 }
 
-public sealed class AssemblyBuilder
+public sealed class AssemblyBuilder : IHasTypesAndMethods
 {
-	internal readonly HashSet<TypeBuilder> typeBuildersWhoseBaseTypeOrInterfacesReferenceAtLeastOneTypeBuilder = new();
-	
 	internal String? name;
 	public AssemblyBuilder Name(String name) { this.name = name; return this; }
 	
@@ -54,6 +48,10 @@ public sealed class AssemblyBuilder
 	public AssemblyBuilder NewType(Action<GlobalTypeBuilder> action) => NewType(out _, action);
 	
 	internal MethodRef? entryPoint;
-	public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = new MethodRef.Declared(entryPoint); return this; }
-	public AssemblyBuilder EntryPoint(MethodBuilder entryPoint) { this.entryPoint = new MethodRef.Builder(entryPoint); return this; }
+	public AssemblyBuilder EntryPoint() { this.entryPoint = null; return this; }
+	public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = entryPoint; return this; }
+	public AssemblyBuilder EntryPoint(MethodBuilder entryPoint) { this.entryPoint = entryPoint; return this; }
+
+	IEnumerable<TypeBuilder> IHasTypesAndMethods.Types => types;
+	IEnumerable<MethodBuilder> IHasTypesAndMethods.Methods => methods;
 }

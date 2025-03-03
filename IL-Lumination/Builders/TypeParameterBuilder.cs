@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
 
-namespace Illumination;
+namespace Illumination.Builders;
 
 public sealed class TypeParameterBuilder
 {
