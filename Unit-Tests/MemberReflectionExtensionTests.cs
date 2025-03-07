@@ -2,7 +2,7 @@ using System;
 using System.Linq.Expressions;
 using System.Reflection;
 using FluentAssertions;
-using IL_Lumination;
+using Illumination;
 using Xunit;
 
 namespace Unit_Tests;
