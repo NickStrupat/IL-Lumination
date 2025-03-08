@@ -3,19 +3,19 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using static System.Reflection.Emit.AssemblyBuilderAccess;
 using Sre = System.Reflection.Emit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Illumination.Builders;
 
 public static class BuilderExtensions
 {
-	public static Assembly Create(this AssemblyBuilder assemblyBuilder)
+	public static Assembly Create(this AssemblyBuilder assemblyBuilder) => assemblyBuilder.Create(out _);
+	public static Assembly Create(this AssemblyBuilder assemblyBuilder, out MethodInfo? entryPoint)
 	{
 		var ab = Sre.AssemblyBuilder.DefineDynamicAssembly(new(assemblyBuilder.name ?? Guid.NewGuid().ToString("N")), RunAndCollect);
-		assemblyBuilder.Build(ab, typeof(Object).Assembly, out _);
+		assemblyBuilder.Build(ab, typeof(Object).Assembly, out entryPoint);
 		return ab;
 	}
 
@@ -35,8 +35,10 @@ public static class BuilderExtensions
 
 	private static Sre.PersistedAssemblyBuilder GetPab(this AssemblyBuilder assemblyBuilder, String path, out Assembly coreAssembly)
 	{
-		var refAssembliesPath = RuntimeEnvironment.GetRuntimeDirectory();
-		PathAssemblyResolver resolver = new PathAssemblyResolver(Directory.GetFiles(refAssembliesPath, "*.dll"));
+		//ToolLocationHelper.GetPathToReferenceAssemblies(RuntimeEnvironment.)
+		var refAssembliesPath = "/usr/local/share/dotnet/packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1";//RuntimeEnvironment.GetRuntimeDirectory();
+		var assemblyPaths = Directory.GetFiles(refAssembliesPath, "*.dll");
+		PathAssemblyResolver resolver = new PathAssemblyResolver(assemblyPaths);
 		var mlc = new MetadataLoadContext(resolver);
 		coreAssembly = mlc.CoreAssembly ?? throw new Exception("Core assembly not found.");
 		return new(new(assemblyBuilder.name ?? Path.GetFileNameWithoutExtension(path)), coreAssembly);
@@ -62,6 +64,13 @@ public static class BuilderExtensions
 		module.CreateGlobalFunctions();
 
 		entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.ResolveMethod(ep) : null;
+	}
+
+	private static MethodInfo GetCreatedMethodInfo(this Sre.MethodBuilder methodBuilder)
+	{
+        ArgumentNullException.ThrowIfNull(methodBuilder);
+        var dt = methodBuilder.DeclaringType;
+        return null!;
 	}
 
 	private static BuildContext DefineAllTypesAndMethods(
@@ -200,6 +209,8 @@ public static class BuilderExtensions
 			MethodRef.Builder b => methodBuilderMap[b.MethodBuilder],
 			_ => throw new ArgumentOutOfRangeException(nameof(methodRef))
 		};
+
+		public Sre.MethodBuilder ResolveMethod(MethodBuilder mb) => methodBuilderMap[mb];
 	}
 	
 	internal sealed class Definer
@@ -216,20 +227,3 @@ public static class BuilderExtensions
 		private Definer(MethodDefiner defineMethod, TypeDefiner defineType) => (DefineMethod, DefineType) = (defineMethod, defineType);
 	}
 }
-
-// internal static class TypeRefExtensions
-// {
-// 	public static Type Resolve(this TypeRef typeRef, BuilderExtensions.BuildContext buildContext) => typeRef switch
-// 	{
-// 		TypeRef.Declared declared => declared.Type,
-// 		TypeRef.Builder builder => buildContext.ResolveType(builder),
-// 		_ => throw new ArgumentOutOfRangeException(nameof(typeRef))
-// 	};
-// 	
-// 	public static Type Resolve(this MethodRef methodRef, BuilderExtensions.TypeBuilderLookup tbl) => typeRef switch
-// 	{
-// 		TypeRef.Declared declared => declared.Type,
-// 		TypeRef.Builder builder => tbl[builder.TypeBuilder],
-// 		_ => throw new ArgumentOutOfRangeException(nameof(typeRef))
-// 	};
-// }

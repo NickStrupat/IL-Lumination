@@ -47,9 +47,9 @@ public sealed class AssemblyBuilder : IHasTypesAndMethods
 	public AssemblyBuilder NewType(out GlobalTypeBuilder globalTypeBuilder) => NewType(out globalTypeBuilder, _ => {});
 	public AssemblyBuilder NewType(Action<GlobalTypeBuilder> action) => NewType(out _, action);
 	
-	internal MethodRef? entryPoint;
-	public AssemblyBuilder EntryPoint() { this.entryPoint = null; return this; }
-	public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = entryPoint; return this; }
+	internal MethodBuilder? entryPoint;
+	// public AssemblyBuilder EntryPoint() { this.entryPoint = null; return this; }
+	// public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = entryPoint; return this; }
 	public AssemblyBuilder EntryPoint(MethodBuilder entryPoint) { this.entryPoint = entryPoint; return this; }
 
 	IEnumerable<TypeBuilder> IHasTypesAndMethods.Types => types;

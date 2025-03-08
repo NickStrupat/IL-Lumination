@@ -57,8 +57,9 @@ public static class PersistedAssemblyBuilderExtensions
 		var tempDir = Directory.CreateTempSubdirectory();
 		try
 		{
-			var savePath = Path.Combine(tempDir.FullName, fileName + ".dll");
-			/*await*/ assemblyBuilder.Save(savePath);//, entryPoint);
+			var filename = assemblyBuilder.GetName().Name + ".dll";
+			var savePath = Path.Combine(tempDir.FullName, filename);
+			await assemblyBuilder.Save(savePath, entryPoint);
 			await File.WriteAllTextAsync(Path.Combine(tempDir.FullName, "Runner.csproj"), $"""
 			                                                                                   <Project Sdk="Microsoft.NET.Sdk">
 			                                                                                   
@@ -71,9 +72,7 @@ public static class PersistedAssemblyBuilderExtensions
 			                                                                                       </PropertyGroup>
 			                                                                                   
 			                                                                                       <ItemGroup>
-			                                                                                         <Reference Include="{assemblyBuilder.FullName}">
-			                                                                                           <HintPath>./test.dll</HintPath>
-			                                                                                         </Reference>
+			                                                                                         <Reference Include="{filename}" />
 			                                                                                       </ItemGroup>
 			                                                                                   
 			                                                                                   </Project>
