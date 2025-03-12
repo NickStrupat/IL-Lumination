@@ -36,7 +36,7 @@ public static class BuilderExtensions
 	private static Sre.PersistedAssemblyBuilder GetPab(this AssemblyBuilder assemblyBuilder, String path, out Assembly coreAssembly)
 	{
 		//ToolLocationHelper.GetPathToReferenceAssemblies(RuntimeEnvironment.)
-		var refAssembliesPath = "/usr/local/share/dotnet/packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1";//RuntimeEnvironment.GetRuntimeDirectory();
+		var refAssembliesPath = "/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.2/ref/net9.0";//"/usr/local/share/dotnet/packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1";//RuntimeEnvironment.GetRuntimeDirectory();
 		var assemblyPaths = Directory.GetFiles(refAssembliesPath, "*.dll");
 		PathAssemblyResolver resolver = new PathAssemblyResolver(assemblyPaths);
 		var mlc = new MetadataLoadContext(resolver);

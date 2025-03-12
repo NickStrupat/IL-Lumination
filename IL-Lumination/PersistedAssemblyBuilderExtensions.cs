@@ -14,7 +14,8 @@ public static class PersistedAssemblyBuilderExtensions
 {
 	public static async Task Save(this PersistedAssemblyBuilder assemblyBuilder, String filePath, MethodInfo? entryPoint = null)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        ArgumentNullException.ThrowIfNull(assemblyBuilder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 		
 		MetadataBuilder metadataBuilder = assemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out BlobBuilder fieldData);
 
@@ -47,47 +48,56 @@ public static class PersistedAssemblyBuilderExtensions
 		await fileStream.WriteAsync(ms.GetBuffer());
 	}
 
-	public static async Task SaveToExecutable(this PersistedAssemblyBuilder assemblyBuilder,
-		String filePath,
+	public static async Task SaveToExecutable(
+		this PersistedAssemblyBuilder assemblyBuilder,
+		String directory,
 		MethodInfo entryPoint)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        if (!Directory.Exists(directory))
+	        throw new DirectoryNotFoundException(directory);
+        var absoluteDirectory = Path.GetFullPath(directory);
 		
-		var fileName = Path.GetFileNameWithoutExtension(filePath) ?? throw new InvalidOperationException();
-		var tempDir = Directory.CreateTempSubdirectory();
-		try
-		{
-			var filename = assemblyBuilder.GetName().Name + ".dll";
-			var savePath = Path.Combine(tempDir.FullName, filename);
-			await assemblyBuilder.Save(savePath, entryPoint);
-			await File.WriteAllTextAsync(Path.Combine(tempDir.FullName, "Runner.csproj"), $"""
-			                                                                                   <Project Sdk="Microsoft.NET.Sdk">
-			                                                                                   
-			                                                                                       <PropertyGroup>
-			                                                                                           <OutputType>Exe</OutputType>
-			                                                                                           <TargetFramework>net9.0</TargetFramework>
-			                                                                                           <Nullable>enable</Nullable>
-			                                                                                           <PublishSingleFile>true</PublishSingleFile>
-			                                                                                           <SelfContained>false</SelfContained>
-			                                                                                       </PropertyGroup>
-			                                                                                   
-			                                                                                       <ItemGroup>
-			                                                                                         <Reference Include="{filename}" />
-			                                                                                       </ItemGroup>
-			                                                                                   
-			                                                                                   </Project>
-			                                                                                   """);
-			var src =
-				(entryPoint.ReturnType.FullName == typeof(void).FullName ? String.Empty : "return ") +
-				(entryPoint.DeclaringType?.FullName is { } x ? x + '.' : String.Empty) +
-				entryPoint.Name + "();";
-				;
-			await File.WriteAllTextAsync(Path.Combine(tempDir.FullName, "Program.cs"), src);
-			//await Process.Start("dotnet", "publish ./Runner.csproj -c Release").WaitForExitAsync();
-		}
-		finally
-		{
-			tempDir.Delete(recursive: true);
-		}
+		var name = assemblyBuilder.GetName().Name ?? throw new("Assembly has no name, but a name is required");
+		var filename = name + ".dll";
+		using var tempDir = Raii.Create(() => Directory.CreateTempSubdirectory(), x => x.Delete(recursive: true));
+		var savePath = Path.Combine(tempDir.Value.FullName, filename);
+		await assemblyBuilder.Save(savePath, entryPoint);
+		const String projectName = "Runner";
+		await File.WriteAllTextAsync(
+			Path.Combine(tempDir.Value.FullName, $"{projectName}.csproj"),
+			$"""
+			<Project Sdk="Microsoft.NET.Sdk">
+
+				<PropertyGroup>
+					<OutputType>Exe</OutputType>
+					<TargetFramework>net9.0</TargetFramework>
+					<Nullable>enable</Nullable>
+					<PublishSingleFile>true</PublishSingleFile>
+					<SelfContained>false</SelfContained>
+					<PublishDir>{absoluteDirectory}</PublishDir>
+					<DebugType>none</DebugType>
+					<DebugSymbols>false</DebugSymbols>
+				</PropertyGroup>
+
+				<ItemGroup>
+					<Reference Include="{filename}" />
+				</ItemGroup>
+
+			</Project>
+			""");
+		var src =
+			(entryPoint.ReturnType.FullName == typeof(void).FullName ? String.Empty : "return ") +
+			(entryPoint.DeclaringType?.FullName is { } x ? x + '.' : String.Empty) +
+			entryPoint.Name + "();";
+			;
+		await File.WriteAllTextAsync(Path.Combine(tempDir.Value.FullName, "Program.cs"), src);
+		await Process
+			.Start(new ProcessStartInfo
+			{
+				WorkingDirectory = tempDir.Value.FullName,
+				FileName = "dotnet",
+				Arguments = $"publish ./{projectName}.csproj -c Release"
+			})!
+			.WaitForExitAsync();
 	}
 }

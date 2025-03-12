@@ -43,7 +43,8 @@ public sealed class AssemblyBuilder : IHasTypesAndMethods
 		NewEnum(out _, action);
 
 	internal readonly List<GlobalTypeBuilder> types = new();
-	public AssemblyBuilder NewType(out GlobalTypeBuilder globalTypeBuilder, Action<GlobalTypeBuilder> action) => this.AddAction(types, globalTypeBuilder = new(this), action);
+	public AssemblyBuilder NewType(out GlobalTypeBuilder globalTypeBuilder, Action<GlobalTypeBuilder> action) =>
+		this.AddAction(types, globalTypeBuilder = new(this), action);
 	public AssemblyBuilder NewType(out GlobalTypeBuilder globalTypeBuilder) => NewType(out globalTypeBuilder, _ => {});
 	public AssemblyBuilder NewType(Action<GlobalTypeBuilder> action) => NewType(out _, action);
 	
