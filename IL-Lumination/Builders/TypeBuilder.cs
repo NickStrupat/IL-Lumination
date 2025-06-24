@@ -6,7 +6,7 @@ namespace Illumination.Builders;
 
 public abstract class TypeBuilder : IHasTypesAndMethods
 {
-	private protected readonly AssemblyBuilder assemblyBuilder; 
+	internal readonly AssemblyBuilder assemblyBuilder; 
 	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility)
 	{
 		this.assemblyBuilder = assemblyBuilder; 
@@ -55,7 +55,7 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	public T NewProperty(out PropertyBuilder propertyBuilder) => NewProperty(out propertyBuilder, _ => {});
 	public T NewProperty(Action<PropertyBuilder> action) => NewProperty(out _, action);
 	
-	public T NewMethod(out NestedMethodBuilder nestedMethodBuilder, Action<NestedMethodBuilder> action) => (T)this.AddAction(methods, nestedMethodBuilder = new(), action);
+	public T NewMethod(out NestedMethodBuilder nestedMethodBuilder, Action<NestedMethodBuilder> action) => (T)this.AddAction(methods, nestedMethodBuilder = new(this), action);
 	public T NewMethod(out NestedMethodBuilder nestedMethodBuilder) => NewMethod(out nestedMethodBuilder, _ => {});
 	public T NewMethod(Action<NestedMethodBuilder> action) => NewMethod(out _, action);
 	
@@ -63,7 +63,7 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	public T NewEnum(out NestedEnumBuilder nestedEnumBuilder) => NewEnum(out nestedEnumBuilder, _ => {});
 	public T NewEnum(Action<NestedEnumBuilder> action) => NewEnum(out _, action);
 	
-	public T NewType(out NestedTypeBuilder nestedTypeBuilder, Action<NestedTypeBuilder> builderAction) => (T)this.AddAction(types, nestedTypeBuilder = new(assemblyBuilder), builderAction);
+	public T NewType(out NestedTypeBuilder nestedTypeBuilder, Action<NestedTypeBuilder> builderAction) => (T)this.AddAction(types, nestedTypeBuilder = new(assemblyBuilder, this), builderAction);
 	public T NewType(out NestedTypeBuilder nestedTypeBuilder) => NewType(out nestedTypeBuilder, _ => {});
 	public T NewType(Action<NestedTypeBuilder> builderAction) => NewType(out _, builderAction);
 }
@@ -78,7 +78,8 @@ public sealed class GlobalTypeBuilder : TypeBuilder<GlobalTypeBuilder>
 
 public sealed class NestedTypeBuilder : TypeBuilder<NestedTypeBuilder>
 {
-	internal NestedTypeBuilder(AssemblyBuilder assemblyBuilder) : base(assemblyBuilder, TypeAttributes.NestedPrivate) {}
+	internal NestedTypeBuilder(AssemblyBuilder assemblyBuilder, TypeBuilder containingType) : base(assemblyBuilder, TypeAttributes.NestedPrivate) => this.containingType = containingType;
+	internal readonly TypeBuilder containingType;
 
 	public NestedTypeBuilder Private() { this.visibility = TypeAttributes.NestedPrivate; return this; }
 	public NestedTypeBuilder Family() { this.visibility = TypeAttributes.NestedFamily; return this; }

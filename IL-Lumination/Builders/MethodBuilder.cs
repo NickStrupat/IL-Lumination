@@ -69,7 +69,8 @@ public sealed class GlobalMethodBuilder : MethodBuilder<GlobalMethodBuilder>
 
 public sealed class NestedMethodBuilder : MethodBuilder<NestedMethodBuilder>
 {
-	internal NestedMethodBuilder() : base(MethodAttributes.Private, default) {}
+	internal NestedMethodBuilder(TypeBuilder containingType) : base(MethodAttributes.Private, default) => this.containingType = containingType;
+	private readonly TypeBuilder containingType;
 	
 	public NestedMethodBuilder Private() { this.visibility = MethodAttributes.Private; return this; }
 	public NestedMethodBuilder Family() { this.visibility = MethodAttributes.Family; return this; }
@@ -80,4 +81,6 @@ public sealed class NestedMethodBuilder : MethodBuilder<NestedMethodBuilder>
 	
 	public NestedMethodBuilder Static() { this.storageType = MethodAttributes.Static; return this; }
 	public NestedMethodBuilder NonStatic() { this.storageType = default; return this; }
+	
+	public NestedMethodBuilder EntryPoint() { this.containingType.assemblyBuilder.entryPoint = this; return this; }
 }
