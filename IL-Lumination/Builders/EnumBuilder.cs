@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using NickStrupat;
 
 namespace Illumination.Builders;
 
@@ -17,9 +19,31 @@ public abstract class EnumBuilder
 	internal String? name { get; private protected set; }
 	internal TypeAttributes visibility { get; private protected set; }
 	internal Type underlyingType { get; private protected set; }
-	internal readonly List<EnumLiteralBuilderBase> literals = new();
+	internal readonly HashSet<EnumLiteralBuilderBase> literals = new(EqCmp<EnumLiteralBuilderBase>.Create(x => x.name));
 	
-	private protected static readonly Type[] validUnderlyingTypes = [typeof(Byte), typeof(SByte), typeof(UInt16), typeof(Int16), typeof(UInt32), typeof(Int32), typeof(UInt64), typeof(Int64)];
+	private protected static class UnderlyingTypes
+	{
+		private static readonly FrozenSet<Type> validUnderlyingTypes =
+		[
+			typeof(Byte),
+			typeof(SByte),
+			typeof(UInt16),
+			typeof(Int16),
+			typeof(UInt32),
+			typeof(Int32),
+			typeof(UInt64),
+			typeof(Int64)
+		];
+		
+		public static Type Validate(Type type)
+		{
+			if (validUnderlyingTypes.Contains(type))
+				return type;
+			var typeNamesCsv = String.Join("`, `", validUnderlyingTypes.Select(x => x.Name));
+			var message = $"Invalid underlying type `{type.Name}`. Must be one of `{typeNamesCsv}`.";
+			throw new ArgumentException(message, nameof(underlyingType));
+		}
+	}
 }
 
 public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
@@ -28,17 +52,12 @@ public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 	
 	public T Name(String name) { this.name = name; return (T)this; }
 
-	public T UnderlyingType(Type underlyingType)
-	{
-		if (Array.IndexOf(validUnderlyingTypes, underlyingType) < 0)
-			throw new ArgumentException($"Invalid underlying type `{underlyingType.Name}`. Must be one of `{String.Join("`, `", validUnderlyingTypes.Select(x => x.Name))}`.", nameof(underlyingType));
-		this.underlyingType = underlyingType; return (T)this;
-	}
+	public T UnderlyingType(Type underlyingType) { this.underlyingType = UnderlyingTypes.Validate(underlyingType); return (T)this; }
 	public T UnderlyingType<TUnderlying>() where TUnderlying : unmanaged, IBinaryInteger<TUnderlying> => this.UnderlyingType(typeof(TUnderlying));
 
 	public T NewLiteral(out EnumLiteralBuilder enumLiteralBuilder, Action<EnumLiteralBuilder> action) =>
 		(T)this.AddAction(literals.AsContravariant(), enumLiteralBuilder = new(), action);
-	public T NewLiteral(out EnumLiteralBuilder enumLiteralBuilder) => NewLiteral(out enumLiteralBuilder, x => {});
+	public T NewLiteral(out EnumLiteralBuilder enumLiteralBuilder) => NewLiteral(out enumLiteralBuilder, _ => {});
 	public T NewLiteral(Action<EnumLiteralBuilder> action) => NewLiteral(out _, action);
 }
 
@@ -50,8 +69,9 @@ public abstract class EnumBuilder<T, TUnderlying> : EnumBuilder where T : EnumBu
 
 	public T NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder, Action<EnumLiteralBuilder<TUnderlying>> action) =>
 		(T)this.AddAction(literals.AsContravariant(), enumLiteralBuilder = new EnumLiteralBuilder<TUnderlying>(), action);
-	public T NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder) => NewLiteral(out enumLiteralBuilder, x => {});
+	public T NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder) => NewLiteral(out enumLiteralBuilder, _ => {});
 	public T NewLiteral(Action<EnumLiteralBuilder<TUnderlying>> action) => NewLiteral(out _, action);
+	public T NewLiteral(String name, TUnderlying value) => NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder, x => x.Name(name).Value(value));
 }
 
 public sealed class GlobalEnumBuilder : EnumBuilder<GlobalEnumBuilder>
