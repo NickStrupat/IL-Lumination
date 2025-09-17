@@ -15,7 +15,7 @@ public abstract class MethodBuilder
 	internal String? name { get; private protected set; }
 	internal MethodAttributes visibility { get; private protected set; }
 	internal MethodAttributes storageType { get; private protected set; }
-	internal TypeRef? returnTypeRef { get; private protected set; }
+	internal TypeRef returnTypeRef { get; private protected set; } = typeof(void);
 	internal readonly List<ParameterBuilderBase> parameters = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();

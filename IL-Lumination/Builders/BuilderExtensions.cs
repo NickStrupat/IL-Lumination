@@ -129,7 +129,7 @@ public static class BuilderExtensions
 				throw new InvalidOperationException("Parameters require a type.");
 		}
 		var mb = buildContext.ResolveMethodBuilder(methodBuilder);
-		mb.SetReturnType(buildContext.ResolveType(methodBuilder.returnTypeRef!));
+		mb.SetReturnType(buildContext.ResolveType(methodBuilder.returnTypeRef));
 		mb.SetParameters(methodBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray());
 		for (var index = 0; index < methodBuilder.parameters.Count; index++)
 		{
