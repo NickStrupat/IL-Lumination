@@ -93,7 +93,8 @@ public static class BuilderExtensions
 
 		void DefineTypesInternal(TypeBuilder typeBuilder, Definer definer)
 		{
-			var tb = definer.DefineType(typeBuilder.name!, typeBuilder.visibility);
+			var typeAttributes = typeBuilder.visibility | typeBuilder.classOrNot | typeBuilder.abstractOrSealed;
+			var tb = definer.DefineType(typeBuilder.name!, typeAttributes);
 			typeBuilderMap.Add(typeBuilder, tb);
 			foreach (var nestedTypeBuilder in typeBuilder.types)
 				DefineTypesInternal(nestedTypeBuilder, tb);

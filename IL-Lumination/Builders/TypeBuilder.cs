@@ -15,6 +15,8 @@ public abstract class TypeBuilder : IHasTypesAndMethods
 
 	internal String? name { get; private protected set; }
 	internal TypeAttributes visibility { get; private protected set; }
+	internal TypeAttributes classOrNot { get; private protected set; }
+	internal TypeAttributes abstractOrSealed { get; private protected set; }
 	internal TypeRef? baseTypeRef { get; private protected set; }
 	
 	internal readonly List<TypeRef> interfaces = new();
@@ -34,6 +36,11 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility) : base(assemblyBuilder, visibility) {}
 	
 	public T Name(String name) { this.name = name; return (T)this; }
+	public T Struct() { this.classOrNot = default; return BaseType<ValueType>(); }
+	public T Class() { this.classOrNot = TypeAttributes.Class; return BaseType<Object>(); }
+	public T Virtual() { this.abstractOrSealed = default; return (T)this; }
+	public T Abstract() { this.abstractOrSealed = TypeAttributes.Abstract; return (T)this; }
+	public T Sealed() { this.abstractOrSealed = TypeAttributes.Sealed; return (T)this; }
 	
 	public T BaseType(Type type) { this.baseTypeRef = type; return (T)this; }
 	public T BaseType<TBase>() => this.BaseType(typeof(TBase));
