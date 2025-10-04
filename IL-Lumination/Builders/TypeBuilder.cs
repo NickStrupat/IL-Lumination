@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Illumination.Builders;
 
-public abstract class TypeBuilder : IHasTypesAndMethods, IBuilder<System.Reflection.Emit.TypeBuilder>
+public abstract class TypeBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 {
 	internal readonly AssemblyBuilder assemblyBuilder; 
 	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility)
@@ -27,8 +27,8 @@ public abstract class TypeBuilder : IHasTypesAndMethods, IBuilder<System.Reflect
 	internal readonly List<NestedEnumBuilder> enums = new();
 	internal readonly List<NestedMethodBuilder> methods = new();
 
-	IEnumerable<TypeBuilder> IHasTypesAndMethods.Types => types;
-	IEnumerable<MethodBuilder> IHasTypesAndMethods.Methods => methods;
+	public IEnumerable<TypeBuilder> Types => types;
+	public IEnumerable<MethodBuilder> Methods => methods;
 }
 
 public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>

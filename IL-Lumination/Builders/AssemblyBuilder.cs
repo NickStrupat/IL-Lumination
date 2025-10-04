@@ -1,17 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using System.Reflection;
 
 namespace Illumination.Builders;
 
-internal interface IHasTypesAndMethods
-{
-	IEnumerable<TypeBuilder> Types { get; }
-	IEnumerable<MethodBuilder> Methods { get; }
-}
-
-public sealed class AssemblyBuilder : IHasTypesAndMethods, IBuilder<System.Reflection.Emit.AssemblyBuilder>
+public sealed class AssemblyBuilder : IBuilder<System.Reflection.Emit.AssemblyBuilder>
 {
 	internal String? name;
 	public AssemblyBuilder Name(String name) { this.name = name; return this; }
@@ -53,6 +46,6 @@ public sealed class AssemblyBuilder : IHasTypesAndMethods, IBuilder<System.Refle
 	// public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = entryPoint; return this; }
 	// public AssemblyBuilder EntryPoint(MethodBuilder entryPoint) { this.entryPoint = entryPoint; return this; }
 
-	IEnumerable<TypeBuilder> IHasTypesAndMethods.Types => types;
-	IEnumerable<MethodBuilder> IHasTypesAndMethods.Methods => methods;
+	public IEnumerable<TypeBuilder> Types => types;
+	public IEnumerable<MethodBuilder> Methods => methods;
 }
