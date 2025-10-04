@@ -57,8 +57,6 @@ public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 
 	public T NewLiteral(out EnumLiteralBuilder enumLiteralBuilder, Action<EnumLiteralBuilder> action) =>
 		(T)this.AddAction(literals.AsContravariant(), enumLiteralBuilder = new(), action);
-	public T NewLiteral(out EnumLiteralBuilder enumLiteralBuilder) => NewLiteral(out enumLiteralBuilder, _ => {});
-	public T NewLiteral(Action<EnumLiteralBuilder> action) => NewLiteral(out _, action);
 }
 
 public abstract class EnumBuilder<T, TUnderlying> : EnumBuilder where T : EnumBuilder<T, TUnderlying> where TUnderlying : struct, IBinaryInteger<TUnderlying>
@@ -69,9 +67,6 @@ public abstract class EnumBuilder<T, TUnderlying> : EnumBuilder where T : EnumBu
 
 	public T NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder, Action<EnumLiteralBuilder<TUnderlying>> action) =>
 		(T)this.AddAction(literals.AsContravariant(), enumLiteralBuilder = new EnumLiteralBuilder<TUnderlying>(), action);
-	public T NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder) => NewLiteral(out enumLiteralBuilder, _ => {});
-	public T NewLiteral(Action<EnumLiteralBuilder<TUnderlying>> action) => NewLiteral(out _, action);
-	public T NewLiteral(String name, TUnderlying value) => NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder, x => x.Name(name).Value(value));
 }
 
 public sealed class GlobalEnumBuilder : EnumBuilder<GlobalEnumBuilder>
@@ -94,11 +89,32 @@ public sealed class GlobalEnumBuilder<TUnderlying> : EnumBuilder<GlobalEnumBuild
 public sealed class NestedEnumBuilder : EnumBuilder<NestedEnumBuilder>
 {
 	internal NestedEnumBuilder() : base(TypeAttributes.NestedPrivate) {}
-	
+
 	public NestedEnumBuilder Private() { this.visibility = TypeAttributes.NestedPrivate; return this; }
 	public NestedEnumBuilder Family() { this.visibility = TypeAttributes.NestedFamily; return this; }
 	public NestedEnumBuilder FamilyAndAssembly() { this.visibility = TypeAttributes.NestedFamANDAssem; return this; }
 	public NestedEnumBuilder FamilyOrAssembly() { this.visibility = TypeAttributes.NestedFamORAssem; return this; }
 	public NestedEnumBuilder Assembly() { this.visibility = TypeAttributes.NestedAssembly; return this; }
 	public NestedEnumBuilder Public() { this.visibility = TypeAttributes.NestedPublic; return this; }
+}
+
+public static class EnumBuilderExtensions
+{
+	public static T NewLiteral<T>(this EnumBuilder<T> eb, out EnumLiteralBuilder enumLiteralBuilder) where T : EnumBuilder<T> =>
+		eb.NewLiteral(out enumLiteralBuilder, _ => {});
+	public static T NewLiteral<T>(this EnumBuilder<T> eb, Action<EnumLiteralBuilder> action) where T : EnumBuilder<T> =>
+		eb.NewLiteral(out _, action);
+
+	public static T NewLiteral<T, TUnderlying>(this EnumBuilder<T, TUnderlying> eb, out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder)
+		where T : EnumBuilder<T, TUnderlying>
+		where TUnderlying : struct, IBinaryInteger<TUnderlying> =>
+		eb.NewLiteral(out enumLiteralBuilder, _ => {});
+	public static T NewLiteral<T, TUnderlying>(this EnumBuilder<T, TUnderlying> eb, Action<EnumLiteralBuilder<TUnderlying>> action)
+		where T : EnumBuilder<T, TUnderlying>
+		where TUnderlying : struct, IBinaryInteger<TUnderlying> =>
+		eb.NewLiteral(out _, action);
+	public static T NewLiteral<T, TUnderlying>(this EnumBuilder<T, TUnderlying> eb, String name, TUnderlying value)
+		where T : EnumBuilder<T, TUnderlying>
+		where TUnderlying : struct, IBinaryInteger<TUnderlying> =>
+		eb.NewLiteral(out _, x => x.Name(name).Value(value));
 }

@@ -51,28 +51,16 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	public T AddInterface(TypeBuilder typeBuilder) { this.interfaces.Add(typeBuilder); return (T)this; }
 
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder, Action<TypeParameterBuilder> builderAction) => (T)this.AddAction(typeParameters, typeParameterBuilder = new(), builderAction);
-	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => NewTypeParameter(out typeParameterBuilder, _ => {});
-	public T NewTypeParameter(Action<TypeParameterBuilder> builderAction) => NewTypeParameter(out _, builderAction);
-	
+
 	public T NewField(out FieldBuilder fieldBuilder, Action<FieldBuilder> action) => (T)this.AddAction(fields, fieldBuilder = new(), action);
-	public T NewField(out FieldBuilder fieldBuilder) => NewField(out fieldBuilder, _ => {});
-	public T NewField(Action<FieldBuilder> action) => NewField(out _, action);
-	
+
 	public T NewProperty(out PropertyBuilder propertyBuilder, Action<PropertyBuilder> action) => (T)this.AddAction(properties, propertyBuilder = new(), action);
-	public T NewProperty(out PropertyBuilder propertyBuilder) => NewProperty(out propertyBuilder, _ => {});
-	public T NewProperty(Action<PropertyBuilder> action) => NewProperty(out _, action);
-	
+
 	public T NewMethod(out NestedMethodBuilder nestedMethodBuilder, Action<NestedMethodBuilder> action) => (T)this.AddAction(methods, nestedMethodBuilder = new(this), action);
-	public T NewMethod(out NestedMethodBuilder nestedMethodBuilder) => NewMethod(out nestedMethodBuilder, _ => {});
-	public T NewMethod(Action<NestedMethodBuilder> action) => NewMethod(out _, action);
-	
+
 	public T NewEnum(out NestedEnumBuilder nestedEnumBuilder, Action<NestedEnumBuilder> action) => (T)this.AddAction(enums, nestedEnumBuilder = new(), action);
-	public T NewEnum(out NestedEnumBuilder nestedEnumBuilder) => NewEnum(out nestedEnumBuilder, _ => {});
-	public T NewEnum(Action<NestedEnumBuilder> action) => NewEnum(out _, action);
-	
+
 	public T NewType(out NestedTypeBuilder nestedTypeBuilder, Action<NestedTypeBuilder> builderAction) => (T)this.AddAction(types, nestedTypeBuilder = new(assemblyBuilder, this), builderAction);
-	public T NewType(out NestedTypeBuilder nestedTypeBuilder) => NewType(out nestedTypeBuilder, _ => {});
-	public T NewType(Action<NestedTypeBuilder> builderAction) => NewType(out _, builderAction);
 }
 
 public sealed class GlobalTypeBuilder : TypeBuilder<GlobalTypeBuilder>
@@ -144,9 +132,7 @@ public sealed class PropertyBuilder : IBuilder<System.Reflection.Emit.PropertyBu
 		builderAction(getterBuilder);
 		return this;
 	}
-	public PropertyBuilder Get(out GetterBuilder getterBuilder) => Get(out getterBuilder, _ => {});
-	public PropertyBuilder Get(Action<GetterBuilder> builderAction) => Get(out _, builderAction);
-	
+
 	internal SetterBuilder? setterBuilder { get; private set; }
 	public PropertyBuilder Set(out SetterBuilder setterBuilder, Action<SetterBuilder> builderAction)
 	{
@@ -154,8 +140,6 @@ public sealed class PropertyBuilder : IBuilder<System.Reflection.Emit.PropertyBu
 		builderAction(setterBuilder);
 		return this;
 	}
-	public PropertyBuilder Set(out SetterBuilder setterBuilder) => Set(out setterBuilder, _ => {});
-	public PropertyBuilder Set(Action<SetterBuilder> builderAction) => Set(out _, builderAction);
 }
 
 public abstract class AccessorBuilder<T> : IBuilder<System.Reflection.Emit.MethodBuilder> where T : AccessorBuilder<T>
@@ -175,13 +159,9 @@ public abstract class AccessorBuilder<T> : IBuilder<System.Reflection.Emit.Metho
 	public T Public() { this.visibility = MethodAttributes.Public; return (T)this; }
 	
 	public T NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public T NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
-	public T NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
-	
+
 	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
-	public T NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
-	
+
 	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
 }
 
@@ -193,4 +173,63 @@ public sealed class GetterBuilder : AccessorBuilder<GetterBuilder>
 public sealed class SetterBuilder : AccessorBuilder<SetterBuilder>
 {
 	internal SetterBuilder(PropertyBuilder propertyBuilder) : base(propertyBuilder) {}
+}
+
+public static class TypeBuilderExtensions
+{
+	public static T NewTypeParameter<T>(this TypeBuilder<T> tb, out TypeParameterBuilder typeParameterBuilder) where T : TypeBuilder<T> =>
+		tb.NewTypeParameter(out typeParameterBuilder, _ => {});
+	public static T NewTypeParameter<T>(this TypeBuilder<T> tb, Action<TypeParameterBuilder> builderAction) where T : TypeBuilder<T> =>
+		tb.NewTypeParameter(out _, builderAction);
+
+	public static T NewField<T>(this TypeBuilder<T> tb, out FieldBuilder fieldBuilder) where T : TypeBuilder<T> =>
+		tb.NewField(out fieldBuilder, _ => {});
+	public static T NewField<T>(this TypeBuilder<T> tb, Action<FieldBuilder> action) where T : TypeBuilder<T> =>
+		tb.NewField(out _, action);
+
+	public static T NewProperty<T>(this TypeBuilder<T> tb, out PropertyBuilder propertyBuilder) where T : TypeBuilder<T> =>
+		tb.NewProperty(out propertyBuilder, _ => {});
+	public static T NewProperty<T>(this TypeBuilder<T> tb, Action<PropertyBuilder> action) where T : TypeBuilder<T> =>
+		tb.NewProperty(out _, action);
+
+	public static T NewMethod<T>(this TypeBuilder<T> tb, out NestedMethodBuilder nestedMethodBuilder) where T : TypeBuilder<T> =>
+		tb.NewMethod(out nestedMethodBuilder, _ => {});
+	public static T NewMethod<T>(this TypeBuilder<T> tb, Action<NestedMethodBuilder> action) where T : TypeBuilder<T> =>
+		tb.NewMethod(out _, action);
+
+	public static T NewEnum<T>(this TypeBuilder<T> tb, out NestedEnumBuilder nestedEnumBuilder) where T : TypeBuilder<T> =>
+		tb.NewEnum(out nestedEnumBuilder, _ => {});
+	public static T NewEnum<T>(this TypeBuilder<T> tb, Action<NestedEnumBuilder> action) where T : TypeBuilder<T> =>
+		tb.NewEnum(out _, action);
+
+	public static T NewType<T>(this TypeBuilder<T> tb, out NestedTypeBuilder nestedTypeBuilder) where T : TypeBuilder<T> =>
+		tb.NewType(out nestedTypeBuilder, _ => {});
+	public static T NewType<T>(this TypeBuilder<T> tb, Action<NestedTypeBuilder> builderAction) where T : TypeBuilder<T> =>
+		tb.NewType(out _, builderAction);
+}
+
+public static class PropertyBuilderExtensions
+{
+	public static PropertyBuilder Get(this PropertyBuilder pb, out GetterBuilder getterBuilder) =>
+		pb.Get(out getterBuilder, _ => {});
+	public static PropertyBuilder Get(this PropertyBuilder pb, Action<GetterBuilder> builderAction) =>
+		pb.Get(out _, builderAction);
+
+	public static PropertyBuilder Set(this PropertyBuilder pb, out SetterBuilder setterBuilder) =>
+		pb.Set(out setterBuilder, _ => {});
+	public static PropertyBuilder Set(this PropertyBuilder pb, Action<SetterBuilder> builderAction) =>
+		pb.Set(out _, builderAction);
+}
+
+public static class AccessorBuilderExtensions
+{
+	public static T NewLocal<T>(this AccessorBuilder<T> ab, out LocalBuilder localBuilder) where T : AccessorBuilder<T> =>
+		ab.NewLocal(out localBuilder, _ => {});
+	public static T NewLocal<T>(this AccessorBuilder<T> ab, Action<LocalBuilder> localBuilderAction) where T : AccessorBuilder<T> =>
+		ab.NewLocal(out _, localBuilderAction);
+
+	public static T NewLocal<T, TLocal>(this AccessorBuilder<T> ab, out LocalBuilder<TLocal> localBuilder) where T : AccessorBuilder<T> =>
+		ab.NewLocal(out localBuilder, _ => {});
+	public static T NewLocal<T, TLocal>(this AccessorBuilder<T> ab, Action<LocalBuilder<TLocal>> localBuilderAction) where T : AccessorBuilder<T> =>
+		ab.NewLocal(out _, localBuilderAction);
 }
