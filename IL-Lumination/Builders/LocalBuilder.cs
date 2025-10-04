@@ -22,7 +22,7 @@ public abstract class LocalBuilderBase<T> : LocalBuilderBase where T : LocalBuil
 	public T Name(String name) { this.name = name; return (T)this; }
 }
 
-public abstract class LocalBuilderBase
+public abstract class LocalBuilderBase : IBuilder<System.Reflection.Emit.LocalBuilder>
 {
 	internal readonly Int16 index;
 	private protected LocalBuilderBase(Int16 index) => this.index = index;

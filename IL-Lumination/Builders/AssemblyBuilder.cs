@@ -11,7 +11,7 @@ internal interface IHasTypesAndMethods
 	IEnumerable<MethodBuilder> Methods { get; }
 }
 
-public sealed class AssemblyBuilder : IHasTypesAndMethods
+public sealed class AssemblyBuilder : IHasTypesAndMethods, IBuilder<System.Reflection.Emit.AssemblyBuilder>
 {
 	internal String? name;
 	public AssemblyBuilder Name(String name) { this.name = name; return this; }

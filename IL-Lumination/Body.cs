@@ -66,9 +66,9 @@ public class BodyBase<TBody> where TBody : BodyBase<TBody>
 
 	private TBody This => (TBody)this;
 	private TBody Emit(OpCode opcode) { il.Emit(opcode); return This; }
-	private TBody Emit(OpCode opcode, Type type) { il.Emit(opcode, type); return This; }
-	private TBody Emit(OpCode opcode, MethodInfo meth) { il.Emit(opcode, meth); return This; }
-	private TBody Emit(OpCode opcode, ConstructorInfo constructor) { il.Emit(opcode, constructor); return This; }
+	private protected virtual TBody Emit(OpCode opcode, Type type) { il.Emit(opcode, type); return This; }
+	private protected virtual TBody Emit(OpCode opcode, MethodInfo meth) { il.Emit(opcode, meth); return This; }
+	private protected virtual TBody Emit(OpCode opcode, ConstructorInfo constructor) { il.Emit(opcode, constructor); return This; }
 	private TBody Emit(OpCode opcode, String str) { il.Emit(opcode, str); return This; }
 	private TBody Emit(OpCode opcode, Byte arg) { il.Emit(opcode, arg); return This; }
 	private TBody Emit(OpCode opcode, SByte arg) { il.Emit(opcode, arg); return This; }

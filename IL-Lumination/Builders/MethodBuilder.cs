@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Illumination.Builders;
 
-public abstract class MethodBuilder
+public abstract class MethodBuilder : IBuilder<System.Reflection.Emit.MethodBuilder>
 {
 	private protected MethodBuilder(MethodAttributes visibility, MethodAttributes storageType)
 	{

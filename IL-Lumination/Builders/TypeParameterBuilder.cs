@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Illumination.Builders;
 
-public sealed class TypeParameterBuilder
+public sealed class TypeParameterBuilder : IBuilder<System.Reflection.Emit.ParameterBuilder>
 {
 	internal TypeParameterBuilder() {}
 	

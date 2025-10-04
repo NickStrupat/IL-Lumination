@@ -35,23 +35,3 @@ public sealed class DynamicFunc<T0, T1, T2, R> : DynamicMethod<Func<T0, T1, T2, 
 public sealed class DynamicFunc<T0, T1, T2, T3, R> : DynamicMethod<Func<T0, T1, T2, T3, R>>;
 public sealed class DynamicFunc<T0, T1, T2, T3, T4, R> : DynamicMethod<Func<T0, T1, T2, T3, T4, R>>;
 public sealed class DynamicFunc<T0, T1, T2, T3, T4, T5, R> : DynamicMethod<Func<T0, T1, T2, T3, T4, T5, R>>;
-
-// public abstract class DynamicMethodBase<TDel> where TDel : Delegate
-// {
-//     private protected DynamicMethodBase() {}
-//     
-//     private readonly DynamicMethod dm = new(String.Empty, ReturnType, ParameterTypes);
-//     
-//     /// <inheritdoc cref="DynamicMethod.GetILGenerator()"/>
-//     public ILGenerator GetILGenerator() => dm.GetILGenerator();
-//     
-//     /// <inheritdoc cref="DynamicMethod.GetILGenerator(System.Int32)"/>
-//     public ILGenerator GetILGenerator(Int32 streamSize) => dm.GetILGenerator(streamSize);
-//
-//     /// <summary><inheritdoc cref="DynamicMethod.CreateDelegate(Type)"/></summary>
-//     public TDel CreateDelegate() => dm.CreateDelegate<TDel>();
-//     
-//     private static readonly MethodInfo InvokeMethod = typeof(TDel).GetMethod("Invoke")!;
-//     private static readonly Type ReturnType = InvokeMethod.ReturnType;
-//     private static readonly Type[] ParameterTypes = InvokeMethod.GetParameters().Select(x => x.ParameterType).ToArray();
-// }

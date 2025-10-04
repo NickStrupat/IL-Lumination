@@ -22,7 +22,7 @@ public abstract class ParameterBuilderBase<T> : ParameterBuilderBase where T : P
 	public T Name(String name) { this.name = name; return (T)this; }
 }
 
-public abstract class ParameterBuilderBase
+public abstract class ParameterBuilderBase : IBuilder<System.Reflection.Emit.ParameterBuilder>
 {
 	internal readonly Int16 index;
 	private protected ParameterBuilderBase(Int16 index) => this.index = index;

@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Illumination.Builders;
 
-public abstract class TypeBuilder : IHasTypesAndMethods
+public abstract class TypeBuilder : IHasTypesAndMethods, IBuilder<System.Reflection.Emit.TypeBuilder>
 {
 	internal readonly AssemblyBuilder assemblyBuilder; 
 	private protected TypeBuilder(AssemblyBuilder assemblyBuilder, TypeAttributes visibility)
@@ -96,7 +96,7 @@ public sealed class NestedTypeBuilder : TypeBuilder<NestedTypeBuilder>
 	public NestedTypeBuilder Public() { this.visibility = TypeAttributes.NestedPublic; return this; }
 }
 
-public sealed class FieldBuilder
+public sealed class FieldBuilder : IBuilder<System.Reflection.Emit.FieldBuilder>
 {
 	internal FieldBuilder() {}
 	
@@ -105,18 +105,92 @@ public sealed class FieldBuilder
 	
 	internal TypeRef? typeRef { get; private set; }
 	public FieldBuilder Type(Type type) { this.typeRef = type; return this; }
+	public FieldBuilder Type<T>() => Type(typeof(T));
 	public FieldBuilder Type(TypeBuilder typeBuilder) { this.typeRef = typeBuilder; return this; }
 	
-	internal TypeAttributes visibility { get; private set; }
-	public FieldBuilder Private() { this.visibility = TypeAttributes.NestedPrivate; return this; }
-	public FieldBuilder Family() { this.visibility = TypeAttributes.NestedFamily; return this; }
-	public FieldBuilder FamilyAndAssembly() { this.visibility = TypeAttributes.NestedFamANDAssem; return this; }
-	public FieldBuilder FamilyOrAssembly() { this.visibility = TypeAttributes.NestedFamORAssem; return this; }
-	public FieldBuilder Assembly() { this.visibility = TypeAttributes.NestedAssembly; return this; }
-	public FieldBuilder Public() { this.visibility = TypeAttributes.NestedPublic; return this; }
+	internal FieldAttributes visibility { get; private set; }
+	public FieldBuilder Private() { this.visibility = FieldAttributes.Private; return this; }
+	public FieldBuilder Family() { this.visibility = FieldAttributes.Family; return this; }
+	public FieldBuilder FamilyAndAssembly() { this.visibility = FieldAttributes.FamANDAssem; return this; }
+	public FieldBuilder FamilyOrAssembly() { this.visibility = FieldAttributes.FamANDAssem; return this; }
+	public FieldBuilder Assembly() { this.visibility = FieldAttributes.Assembly; return this; }
+	public FieldBuilder Public() { this.visibility = FieldAttributes.Public; return this; }
+
+	internal FieldAttributes storageType { get; private set; }
+	public FieldBuilder Static() { this.storageType = FieldAttributes.Static; return this; }
+	public FieldBuilder NonStatic() { this.storageType = default; return this; }
 }
 
-public sealed class PropertyBuilder
+public sealed class PropertyBuilder : IBuilder<System.Reflection.Emit.PropertyBuilder>
 {
 	internal PropertyBuilder() {}
+	
+	internal String? name { get; private set; }
+	public PropertyBuilder Name(String name) { this.name = name; return this; }
+	
+	internal MethodAttributes storageType { get; private set; }
+	public PropertyBuilder Static() { this.storageType = MethodAttributes.Static; return this; }
+	public PropertyBuilder NonStatic() { this.storageType = default; return this; }
+	
+	internal TypeRef? typeRef { get; private set; }
+	public PropertyBuilder Type(Type type) { this.typeRef = type; return this; }
+	public PropertyBuilder Type<T>() => Type(typeof(T));
+	public PropertyBuilder Type(TypeBuilder typeBuilder) { this.typeRef = typeBuilder; return this; }
+	
+	internal GetterBuilder? getterBuilder { get; private set; }
+	public PropertyBuilder Get(out GetterBuilder getterBuilder, Action<GetterBuilder> builderAction)
+	{
+		getterBuilder = this.getterBuilder = new(this);
+		builderAction(getterBuilder);
+		return this;
+	}
+	public PropertyBuilder Get(out GetterBuilder getterBuilder) => Get(out getterBuilder, _ => {});
+	public PropertyBuilder Get(Action<GetterBuilder> builderAction) => Get(out _, builderAction);
+	
+	internal SetterBuilder? setterBuilder { get; private set; }
+	public PropertyBuilder Set(out SetterBuilder setterBuilder, Action<SetterBuilder> builderAction)
+	{
+		setterBuilder = this.setterBuilder = new(this);
+		builderAction(setterBuilder);
+		return this;
+	}
+	public PropertyBuilder Set(out SetterBuilder setterBuilder) => Set(out setterBuilder, _ => {});
+	public PropertyBuilder Set(Action<SetterBuilder> builderAction) => Set(out _, builderAction);
+}
+
+public abstract class AccessorBuilder<T> : IBuilder<System.Reflection.Emit.MethodBuilder> where T : AccessorBuilder<T>
+{
+	internal AccessorBuilder(PropertyBuilder propertyBuilder) => this.propertyBuilder = propertyBuilder;
+	internal readonly PropertyBuilder propertyBuilder;
+	
+	internal MethodAttributes visibility { get; private set; }
+	internal readonly List<Action<BodyBuilder>> bodyActions = new();
+	internal readonly List<LocalBuilderBase> locals = new();
+
+	public T Private() { this.visibility = MethodAttributes.Private; return (T)this; }
+	public T Family() { this.visibility = MethodAttributes.Family; return (T)this; }
+	public T FamilyAndAssembly() { this.visibility = MethodAttributes.FamANDAssem; return (T)this; }
+	public T FamilyOrAssembly() { this.visibility = MethodAttributes.FamORAssem; return (T)this; }
+	public T Assembly() { this.visibility = MethodAttributes.Assembly; return (T)this; }
+	public T Public() { this.visibility = MethodAttributes.Public; return (T)this; }
+	
+	public T NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
+	public T NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
+	public T NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
+	
+	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
+	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
+	public T NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
+	
+	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
+}
+
+public sealed class GetterBuilder : AccessorBuilder<GetterBuilder>
+{
+	internal GetterBuilder(PropertyBuilder propertyBuilder) : base(propertyBuilder) {}
+}
+
+public sealed class SetterBuilder : AccessorBuilder<SetterBuilder>
+{
+	internal SetterBuilder(PropertyBuilder propertyBuilder) : base(propertyBuilder) {}
 }

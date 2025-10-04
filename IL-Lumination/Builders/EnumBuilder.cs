@@ -8,7 +8,7 @@ using NickStrupat;
 
 namespace Illumination.Builders;
 
-public abstract class EnumBuilder
+public abstract class EnumBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 {
 	private protected EnumBuilder(TypeAttributes visibility, Type underlyingType)
 	{
