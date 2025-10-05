@@ -14,7 +14,6 @@ public static class PersistedAssemblyBuilderExtensions
 {
 	public static async Task Save(this PersistedAssemblyBuilder assemblyBuilder, String filePath, MethodInfo? entryPoint = null)
 	{
-        ArgumentNullException.ThrowIfNull(assemblyBuilder);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 		
 		MetadataBuilder metadataBuilder = assemblyBuilder.GenerateMetadata(out BlobBuilder ilStream, out BlobBuilder fieldData);

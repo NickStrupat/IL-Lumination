@@ -81,7 +81,6 @@ public static class BuilderExtensions
 
 	private static MethodInfo GetCreatedMethodInfo(this Sre.MethodBuilder methodBuilder)
 	{
-        ArgumentNullException.ThrowIfNull(methodBuilder);
         var dt = methodBuilder.DeclaringType;
         return null!;
 	}
@@ -93,9 +92,6 @@ public static class BuilderExtensions
 	{
 		var builderMap = new BuilderMap();
 		var buildContext = new BuildContext(builderMap, coreAssembly);
-		// var typeBuilderMap = new Dictionary<TypeBuilder, Sre.TypeBuilder>();
-		// var enumBuilderMap = new Dictionary<EnumBuilder, Sre.TypeBuilder>();
-		// var methodBuilderMap = new Dictionary<MethodBuilder, Sre.MethodBuilder>();
 
 		foreach (var type in assemblyBuilder.types)
 			DefineTypesInternal(type, mb);

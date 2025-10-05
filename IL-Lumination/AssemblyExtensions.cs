@@ -29,9 +29,6 @@ public static class AssemblyExtensions
 
 	public static async Task SaveExecutable(this Assembly assembly, String directory, MethodInfo entryPoint)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-		ArgumentNullException.ThrowIfNull(entryPoint);
-
 		var absoluteDirectory = Path.GetFullPath(directory);
 		
 		var tempDir = Directory.CreateTempSubdirectory();
