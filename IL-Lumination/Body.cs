@@ -59,7 +59,7 @@ public static class BodyLogicExtensions
 
 public sealed class Body(ILGenerator il) : BodyBase<Body>(il);
 
-public class BodyBase<TBody> where TBody : BodyBase<TBody>
+public abstract class BodyBase<TBody> where TBody : BodyBase<TBody>
 {
 	private readonly ILGenerator il;
 	private protected BodyBase(ILGenerator il) => this.il = il;
