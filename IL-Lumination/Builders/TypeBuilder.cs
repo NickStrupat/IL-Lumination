@@ -26,9 +26,6 @@ public abstract class TypeBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 	internal readonly List<NestedTypeBuilder> types = new();
 	internal readonly List<NestedEnumBuilder> enums = new();
 	internal readonly List<NestedMethodBuilder> methods = new();
-
-	public IEnumerable<TypeBuilder> Types => types;
-	public IEnumerable<MethodBuilder> Methods => methods;
 }
 
 public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>

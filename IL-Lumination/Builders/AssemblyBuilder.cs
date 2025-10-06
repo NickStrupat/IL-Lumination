@@ -45,7 +45,4 @@ public sealed class AssemblyBuilder : IBuilder<System.Reflection.Emit.AssemblyBu
 	// public AssemblyBuilder EntryPoint() { this.entryPoint = null; return this; }
 	// public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = entryPoint; return this; }
 	// public AssemblyBuilder EntryPoint(MethodBuilder entryPoint) { this.entryPoint = entryPoint; return this; }
-
-	public IEnumerable<TypeBuilder> Types => types;
-	public IEnumerable<MethodBuilder> Methods => methods;
 }
