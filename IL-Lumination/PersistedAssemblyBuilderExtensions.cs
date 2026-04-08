@@ -42,7 +42,7 @@ public static class PersistedAssemblyBuilderExtensions
 		{
 			PreallocationSize = peBlob.Count,
 			Access = FileAccess.Write,
-			Mode = FileMode.CreateNew
+			Mode = FileMode.Create
 		});
 		await fileStream.WriteAsync(ms.GetBuffer());
 	}
@@ -71,7 +71,6 @@ public static class PersistedAssemblyBuilderExtensions
 					<OutputType>Exe</OutputType>
 					<TargetFramework>net9.0</TargetFramework>
 					<Nullable>enable</Nullable>
-					<PublishSingleFile>true</PublishSingleFile>
 					<SelfContained>false</SelfContained>
 					<PublishDir>{absoluteDirectory}</PublishDir>
 					<DebugType>none</DebugType>
@@ -98,5 +97,11 @@ public static class PersistedAssemblyBuilderExtensions
 				Arguments = $"publish ./{projectName}.csproj -c Release"
 			})!
 			.WaitForExitAsync();
+		// Rename the published executable to match the assembly name
+		var publishedExe = Path.Combine(absoluteDirectory, projectName);
+		var targetExe = Path.Combine(absoluteDirectory, name);
+		if (OperatingSystem.IsWindows()) { publishedExe += ".exe"; targetExe += ".exe"; }
+		if (File.Exists(targetExe)) File.Delete(targetExe);
+		File.Move(publishedExe, targetExe);
 	}
 }

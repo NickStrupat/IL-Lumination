@@ -37,15 +37,13 @@ public static class AssemblyBuilderExtensions
 
 	private static Sre.PersistedAssemblyBuilder GetPab(this AssemblyBuilder assemblyBuilder, String path, out Assembly coreAssembly)
 	{
-		//ToolLocationHelper.GetPathToReferenceAssemblies(RuntimeEnvironment.)
-		var what = RuntimeEnvironment.GetRuntimeDirectory();
-		var refAssembliesPath = "/usr/local/share/dotnet/shared/Microsoft.NETCore.App/9.0.2";//"/usr/local/share/dotnet/packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1";//RuntimeEnvironment.GetRuntimeDirectory();
-		var assemblyPaths = Directory.GetFiles(what, "*.dll");
+		var refAssembliesPath = GetReferenceAssembliesPath();
+		var assemblyPaths = Directory.GetFiles(refAssembliesPath, "*.dll");
 		PathAssemblyResolver resolver = new PathAssemblyResolver(assemblyPaths);
 		var mlc = new MetadataLoadContext(resolver);
 		coreAssembly = mlc.CoreAssembly ?? throw new Exception("Core assembly not found.");
 		var pab = new Sre.PersistedAssemblyBuilder(new(assemblyBuilder.name ?? Path.GetFileNameWithoutExtension(path)), coreAssembly);
-		
+
 		var targetFrameworkAttributeBuilder = new Sre.CustomAttributeBuilder(
 			typeof(TargetFrameworkAttribute).GetConstructor([typeof(String)])!,
 			[".NETCoreApp,Version=v9.0"],
@@ -53,6 +51,25 @@ public static class AssemblyBuilderExtensions
 			[".NET 9.0"]);
 		pab.SetCustomAttribute(targetFrameworkAttributeBuilder);
 		return pab;
+	}
+
+	private static String GetReferenceAssembliesPath()
+	{
+		var dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT")
+			?? Path.GetDirectoryName(RuntimeEnvironment.GetRuntimeDirectory().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+			?? throw new InvalidOperationException("Cannot determine .NET SDK root directory.");
+		// Walk up from shared/Microsoft.NETCore.App/<version>/ to the dotnet root
+		var root = Path.GetFullPath(Path.Combine(dotnetRoot, "..", ".."));
+		var packsDir = Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref");
+		if (!Directory.Exists(packsDir))
+			throw new DirectoryNotFoundException($"Reference assembly pack not found at: {packsDir}");
+		// Find the latest 9.x version
+		var latestVersion = Directory.GetDirectories(packsDir)
+			.Select(Path.GetFileName)
+			.Where(v => v!.StartsWith("9."))
+			.OrderByDescending(v => v)
+			.FirstOrDefault() ?? throw new InvalidOperationException("No .NET 9 reference assembly pack found.");
+		return Path.Combine(packsDir, latestVersion, "ref", "net9.0");
 	}
 
 	private static void Build(

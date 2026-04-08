@@ -53,3 +53,17 @@ var method = loaded.Modules.First().GetMethod("MultiplyBy2") ?? throw new Invali
 var del = method.CreateDelegate<Func<Int32, Int32>>();
 var result = del(8);
 Console.WriteLine(result);
+
+var outputDir = Path.Combine(Path.GetTempPath(), "IL-Lumination-exe-test");
+Directory.CreateDirectory(outputDir);
+await assemblyBuilder.SaveToExecutable(outputDir);
+var exePath = Path.Combine(outputDir, "TestAssembly");
+if (OperatingSystem.IsWindows()) exePath += ".exe";
+Console.WriteLine($"Executable saved to: {exePath}");
+var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+{
+	FileName = exePath,
+	RedirectStandardOutput = true
+})!;
+await process.WaitForExitAsync();
+Console.WriteLine($"Executable output: {await process.StandardOutput.ReadToEndAsync()}");
