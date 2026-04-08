@@ -5,12 +5,8 @@ using System.Reflection;
 
 namespace Illumination.Builders;
 
-internal sealed class BuildContext(
-	BuilderMap builderMap,
-	Assembly? coreAssembly
-)
+internal sealed class BuildContext(BuilderMap builderMap, Assembly? coreAssembly)
 {
-	private readonly BuilderMap builderMap = builderMap.ThrowIfArgIsNull();
 
 	public T GetBuilder<T>(IBuilder<T> builder) where T : class => builderMap.Get(builder);
 	// public System.Reflection.Emit.TypeBuilder ResolveTypeBuilder(TypeBuilder typeBuilder) => builderMap.Get(typeBuilder);

@@ -41,6 +41,11 @@ public sealed class AssemblyBuilder : IBuilder<System.Reflection.Emit.AssemblyBu
 	public AssemblyBuilder NewType(out GlobalTypeBuilder globalTypeBuilder) => NewType(out globalTypeBuilder, _ => {});
 	public AssemblyBuilder NewType(Action<GlobalTypeBuilder> action) => NewType(out _, action);
 
+	// public AssemblyBuilder NewType<TBase>(out GlobalTypeBuilder globalTypeBuilder)
+	// {
+	// 	globalTypeBuilder
+	// }
+
 	internal MethodBuilder? entryPoint;
 	// public AssemblyBuilder EntryPoint() { this.entryPoint = null; return this; }
 	// public AssemblyBuilder EntryPoint(MethodInfo entryPoint) { this.entryPoint = entryPoint; return this; }

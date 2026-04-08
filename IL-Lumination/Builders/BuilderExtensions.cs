@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using static System.Reflection.Emit.AssemblyBuilderAccess;
@@ -14,70 +12,6 @@ namespace Illumination.Builders;
 
 public static class BuilderExtensions
 {
-	public static Assembly Create(this AssemblyBuilder assemblyBuilder) => assemblyBuilder.Create(out _);
-	public static Assembly Create(this AssemblyBuilder assemblyBuilder, out MethodInfo? entryPoint)
-	{
-		var ab = Sre.AssemblyBuilder.DefineDynamicAssembly(new(assemblyBuilder.name ?? Guid.NewGuid().ToString("N")), RunAndCollect);
-		assemblyBuilder.Build(ab, coreAssembly:null/*typeof(Object).Assembly*/, out entryPoint);
-		return ab;
-	}
-
-	public static async Task Save(this AssemblyBuilder assemblyBuilder, String path)
-	{
-		var ab = GetPab(assemblyBuilder, path, out var coreAssembly);
-		assemblyBuilder.Build(ab, coreAssembly, out var entryPoint);
-		await ab.Save(path, entryPoint);
-	}
-
-	public static async Task SaveToExecutable(this AssemblyBuilder assemblyBuilder, String path)
-	{
-		var ab = GetPab(assemblyBuilder, path, out var coreAssembly);
-		assemblyBuilder.Build(ab, coreAssembly, out var entryPoint);
-		await ab.SaveToExecutable(path, entryPoint!);
-	}
-
-	private static Sre.PersistedAssemblyBuilder GetPab(this AssemblyBuilder assemblyBuilder, String path, out Assembly coreAssembly)
-	{
-		//ToolLocationHelper.GetPathToReferenceAssemblies(RuntimeEnvironment.)
-		var what = RuntimeEnvironment.GetRuntimeDirectory();
-		var refAssembliesPath = "/usr/local/share/dotnet/shared/Microsoft.NETCore.App/9.0.2";//"/usr/local/share/dotnet/packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1";//RuntimeEnvironment.GetRuntimeDirectory();
-		var assemblyPaths = Directory.GetFiles(what, "*.dll");
-		PathAssemblyResolver resolver = new PathAssemblyResolver(assemblyPaths);
-		var mlc = new MetadataLoadContext(resolver);
-		coreAssembly = mlc.CoreAssembly ?? throw new Exception("Core assembly not found.");
-		var pab = new Sre.PersistedAssemblyBuilder(new(assemblyBuilder.name ?? Path.GetFileNameWithoutExtension(path)), coreAssembly);
-		
-		var targetFrameworkAttributeBuilder = new Sre.CustomAttributeBuilder(
-			typeof(TargetFrameworkAttribute).GetConstructor([typeof(String)])!,
-			[".NETCoreApp,Version=v9.0"],
-			[typeof(TargetFrameworkAttribute).GetProperty(nameof(TargetFrameworkAttribute.FrameworkDisplayName))!],
-			[".NET 9.0"]);
-		pab.SetCustomAttribute(targetFrameworkAttributeBuilder);
-		return pab;
-	}
-
-	private static void Build(
-		this AssemblyBuilder assemblyBuilder,
-		Sre.AssemblyBuilder ab,
-		Assembly? coreAssembly,
-		out MethodInfo? entryPoint)
-	{
-		var module = ab.DefineDynamicModule("<Module>"); // only one module is allowed since .NET 5 (https://learn.microsoft.com/en-us/dotnet/api/system.reflection.emit.assemblybuilder.definedynamicmodule?view=net-5.0#:~:text=Remarks)
-		
-		var buildContext = DefineAllTypesAndMethods(assemblyBuilder, module, coreAssembly);
-
-		foreach (var type in assemblyBuilder.types)
-			type.Build(buildContext);
-		foreach (var method in assemblyBuilder.methods)
-			method.Build(buildContext);
-		foreach (var @enum in assemblyBuilder.enums)
-			@enum.Build(buildContext);
-		
-		module.CreateGlobalFunctions();
-
-		//entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.ResolveMethod(ep) : null;
-		entryPoint = ab.EntryPoint;
-	}
 
 	private static MethodInfo GetCreatedMethodInfo(this Sre.MethodBuilder methodBuilder)
 	{
@@ -98,7 +32,7 @@ public static class BuilderExtensions
 		foreach (var @enum in assemblyBuilder.enums)
 			DefineEnumsInternal(@enum, mb);
 		foreach (var method in assemblyBuilder.methods)
-			DefineMethodsInternal(method, mb);
+			DefineMethodInternal(method, mb);
 		return buildContext;
 
 		void DefineTypesInternal(TypeBuilder typeBuilder, Definer definer)
@@ -110,8 +44,10 @@ public static class BuilderExtensions
 				DefineTypesInternal(nestedTypeBuilder, tb);
 			foreach (var @enum in typeBuilder.enums)
 				DefineEnumsInternal(@enum, tb);
+			foreach (var constructorBuilder in typeBuilder.constructors)
+				DefineConstructorInternal(constructorBuilder, tb);
 			foreach (var nestedMethodBuilder in typeBuilder.methods)
-				DefineMethodsInternal(nestedMethodBuilder, tb);
+				DefineMethodInternal(nestedMethodBuilder, tb);
 			foreach (var field in typeBuilder.fields)
 				DefineFieldInternal(field, tb);
 			foreach (var property in typeBuilder.properties)
@@ -121,12 +57,19 @@ public static class BuilderExtensions
 		void DefineEnumsInternal(EnumBuilder enumBuilder, Definer definer)
 		{
 			if (String.IsNullOrEmpty(enumBuilder.name))
-				throw new InvalidOperationException("Methods require a name.");
-			var tb = definer.DefineType(enumBuilder.name!, enumBuilder.visibility | TypeAttributes.Sealed);
+				throw new InvalidOperationException("EnumBuilder requires a name to be configured before building.");
+			var tb = definer.DefineType(enumBuilder.name, enumBuilder.visibility | TypeAttributes.Sealed);
 			builderMap.Add(enumBuilder, tb);
 		}
+		
+		void DefineConstructorInternal(ConstructorBuilder constructorBuilder, Sre.TypeBuilder typeBuilder)
+		{
+			var parameterTypes = constructorBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray();
+			var cb = typeBuilder.DefineConstructor(constructorBuilder.visibility, CallingConventions.Standard, parameterTypes);
+			builderMap.Add(constructorBuilder, cb);
+		}
 
-		void DefineMethodsInternal(MethodBuilder methodBuilder, Definer definer)
+		void DefineMethodInternal(MethodBuilder methodBuilder, Definer definer)
 		{
 			if (String.IsNullOrEmpty(methodBuilder.name))
 				throw new InvalidOperationException("Methods require a name.");
@@ -195,7 +138,7 @@ public static class BuilderExtensions
 		return mb;
 	}
 
-	private static void Build(this TypeBuilder typeBuilder, BuildContext buildContext)
+	internal static void Build(this TypeBuilder typeBuilder, BuildContext buildContext)
 	{
 		if (String.IsNullOrEmpty(typeBuilder.name))
 			throw new InvalidOperationException("Types require a name.");
@@ -220,8 +163,6 @@ public static class BuilderExtensions
 
 	internal static void Build(this EnumBuilder enumBuilder, BuildContext buildContext)
 	{
-		if (String.IsNullOrEmpty(enumBuilder.name))
-			throw new InvalidOperationException("Enums require a name.");
 		var eb = buildContext.GetBuilder(enumBuilder);
 		eb.SetParent(buildContext.GetCoreAssemblyType(typeof(Enum)));
 		eb.DefineField("value__", buildContext.GetCoreAssemblyType(enumBuilder.underlyingType), FieldAttributes.Private | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName);
@@ -236,18 +177,18 @@ public static class BuilderExtensions
 		}
 		eb.CreateType();
 	}
+}
 
-	private sealed class Definer
-	{
-		public static implicit operator Definer(Sre.ModuleBuilder x) => new((name, attributes) => x.DefineGlobalMethod(name, attributes, null, null), x.DefineType);
-		public static implicit operator Definer(Sre.TypeBuilder x) => new(x.DefineMethod, x.DefineNestedType);
+internal sealed class Definer
+{
+	public static implicit operator Definer(Sre.ModuleBuilder x) => new((name, attributes) => x.DefineGlobalMethod(name, attributes, null, null), x.DefineType);
+	public static implicit operator Definer(Sre.TypeBuilder x) => new(x.DefineMethod, x.DefineNestedType);
 	
-		public delegate Sre.MethodBuilder MethodDefiner(String name, MethodAttributes attributes);
-		public delegate Sre.TypeBuilder TypeDefiner(String name, TypeAttributes attributes);
+	public delegate Sre.MethodBuilder MethodDefiner(String name, MethodAttributes attributes);
+	public delegate Sre.TypeBuilder TypeDefiner(String name, TypeAttributes attributes);
 		
-		public MethodDefiner DefineMethod { get; }
-		public TypeDefiner DefineType { get; }
+	public MethodDefiner DefineMethod { get; }
+	public TypeDefiner DefineType { get; }
 	
-		private Definer(MethodDefiner defineMethod, TypeDefiner defineType) => (DefineMethod, DefineType) = (defineMethod, defineType);
-	}
+	private Definer(MethodDefiner defineMethod, TypeDefiner defineType) => (DefineMethod, DefineType) = (defineMethod, defineType);
 }

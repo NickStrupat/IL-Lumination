@@ -11,6 +11,13 @@ public static class BodyExtensions
 	public static Body Body(this ILGenerator il) => new(il);
 	public static Body Body(this DynamicMethod dm) => dm.GetILGenerator().Body();
 	public static Body Body<TDel>(this DynamicMethod<TDel> dm) where TDel : Delegate => dm.GetILGenerator().Body();
+	
+	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, ReadOnlySpan<Action<TBody>> catchBodies, Action<TBody>? finallyBody) where TBody : BodyBase<TBody>
+	{
+		
+		
+		return body;
+	}
 }
 
 public static class BodyAddExtensions

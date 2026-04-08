@@ -1,4 +1,5 @@
 ﻿using Illumination.Builders;
+using Illumination.Builders.Extensions;
 
 Action<String> println = Console.WriteLine;
 var assemblyBuilder = new AssemblyBuilder()

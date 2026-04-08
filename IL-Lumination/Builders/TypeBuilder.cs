@@ -25,6 +25,7 @@ public abstract class TypeBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 	internal readonly List<PropertyBuilder> properties = new();
 	internal readonly List<NestedTypeBuilder> types = new();
 	internal readonly List<NestedEnumBuilder> enums = new();
+	internal readonly List<ConstructorBuilder> constructors = new();
 	internal readonly List<NestedMethodBuilder> methods = new();
 }
 
@@ -70,6 +71,10 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 	public T NewType(out NestedTypeBuilder nestedTypeBuilder, Action<NestedTypeBuilder> builderAction) => (T)this.AddAction(types, nestedTypeBuilder = new(assemblyBuilder, this), builderAction);
 	public T NewType(out NestedTypeBuilder nestedTypeBuilder) => NewType(out nestedTypeBuilder, _ => {});
 	public T NewType(Action<NestedTypeBuilder> builderAction) => NewType(out _, builderAction);
+	
+	public T NewConstructor(out ConstructorBuilder constructorBuilder, Action<ConstructorBuilder> builderAction) => (T)this.AddAction(constructors, constructorBuilder = new(this), builderAction);
+	public T NewConstructor(out ConstructorBuilder constructorBuilder) => NewConstructor(out constructorBuilder, _ => {});
+	public T NewConstructor(Action<ConstructorBuilder> builderAction) => NewConstructor(out _, builderAction);
 }
 
 public sealed class GlobalTypeBuilder : TypeBuilder<GlobalTypeBuilder>
@@ -190,4 +195,30 @@ public sealed class GetterBuilder : AccessorBuilder<GetterBuilder>
 public sealed class SetterBuilder : AccessorBuilder<SetterBuilder>
 {
 	internal SetterBuilder(PropertyBuilder propertyBuilder) : base(propertyBuilder) {}
+}
+
+public sealed class ConstructorBuilder : IBuilder<System.Reflection.Emit.ConstructorBuilder>
+{
+	internal ConstructorBuilder(TypeBuilder containingType) => this.containingType = containingType;
+	internal readonly TypeBuilder containingType;
+	
+	internal MethodAttributes visibility { get; private set; }
+	public ConstructorBuilder Private() { this.visibility = MethodAttributes.Private; return this; }
+	public ConstructorBuilder Family() { this.visibility = MethodAttributes.Family; return this; }
+	public ConstructorBuilder FamilyAndAssembly() { this.visibility = MethodAttributes.FamANDAssem; return this; }
+	public ConstructorBuilder FamilyOrAssembly() { this.visibility = MethodAttributes.FamORAssem; return this; }
+	public ConstructorBuilder Assembly() { this.visibility = MethodAttributes.Assembly; return this; }
+	public ConstructorBuilder Public() { this.visibility = MethodAttributes.Public; return this; }
+	
+	internal readonly List<ParameterBuilderBase> parameters = new();
+
+	public ConstructorBuilder NewParameter(out ParameterBuilder parameterBuilder, Action<ParameterBuilder> parameterBuilderAction) =>
+		this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
+	public ConstructorBuilder NewParameter(out ParameterBuilder parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
+	public ConstructorBuilder NewParameter(Action<ParameterBuilder> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
+	
+	public ConstructorBuilder NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder, Action<ParameterBuilder<TParam>> parameterBuilderAction) =>
+		this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
+	public ConstructorBuilder NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
+	public ConstructorBuilder NewParameter<TParam>(Action<ParameterBuilder<TParam>> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
 }

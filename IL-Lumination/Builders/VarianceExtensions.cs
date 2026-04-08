@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Illumination.Builders;
 
-internal static class Extensions
+internal static class VarianceExtensions
 {
 	public static T AddAction<T, TItem>(this T @this, List<TItem> list, TItem item, Action<TItem> action)
 	{
