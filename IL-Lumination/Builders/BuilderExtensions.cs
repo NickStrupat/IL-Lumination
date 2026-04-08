@@ -73,7 +73,11 @@ public static class BuilderExtensions
 		{
 			if (String.IsNullOrEmpty(methodBuilder.name))
 				throw new InvalidOperationException("Methods require a name.");
-			var mb = definer.DefineMethod(methodBuilder.name!, methodBuilder.visibility | methodBuilder.storageType);
+			var returnType = methodBuilder.returnTypeRef is { } rt ? buildContext.ResolveType(rt) : null;
+			var parameterTypes = methodBuilder.parameters.Count > 0
+				? methodBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray()
+				: null;
+			var mb = definer.DefineMethod(methodBuilder.name!, methodBuilder.visibility | methodBuilder.storageType, returnType, parameterTypes);
 			builderMap.Add(methodBuilder, mb);
 		}
 
@@ -110,29 +114,17 @@ public static class BuilderExtensions
 
 	internal static Sre.MethodBuilder Build(this MethodBuilder methodBuilder, BuildContext buildContext)
 	{
-		if (String.IsNullOrEmpty(methodBuilder.name))
-			throw new InvalidOperationException("Methods require a name.");
-		if (methodBuilder.returnTypeRef is null)
-			throw new InvalidOperationException("Methods require a return type.");
-		foreach (var parameterBuilder in methodBuilder.parameters)
-		{
-			if (parameterBuilder.typeRef is null)
-				throw new InvalidOperationException("Parameters require a type.");
-		}
 		var mb = buildContext.GetBuilder(methodBuilder);
-		mb.SetReturnType(buildContext.ResolveType(methodBuilder.returnTypeRef));
-		var parameterTypes = methodBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray();
-		mb.SetParameters(parameterTypes);
-		for (var index = 0; index < methodBuilder.parameters.Count; index++)
-		{
-			_ = mb.DefineParameter(index + 1, ParameterAttributes.None, methodBuilder.parameters[index].name);
-		}
+
+		var ilGenerator = mb.GetILGenerator();
+		foreach (var local in methodBuilder.locals)
+			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
 
 		var dictionary = methodBuilder.parameters.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
 		Int16? ParameterLookup(String s) => dictionary.TryGetValue(s, out var index) ? index : null;
 		var locals = methodBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
 		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
-		var body = new BodyBuilder(mb.GetILGenerator(), buildContext, ParameterLookup, LocalLookup);
+		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup, LocalLookup);
 		methodBuilder.bodyActions.ForEach(a => a.Invoke(body));
 
 		return mb;
@@ -153,12 +145,53 @@ public static class BuilderExtensions
 			nestedMethodBuilder.Build(buildContext);
 		foreach (var enumBuilder in typeBuilder.enums)
 			enumBuilder.Build(buildContext);
-		foreach (var fieldBuilder in typeBuilder.fields)
-		{
-			
-		}
-		
+		foreach (var constructorBuilder in typeBuilder.constructors)
+			constructorBuilder.Build(buildContext);
+		foreach (var propertyBuilder in typeBuilder.properties)
+			propertyBuilder.BuildAccessors(buildContext);
+
 		tb.CreateType();
+	}
+
+	internal static void Build(this ConstructorBuilder constructorBuilder, BuildContext buildContext)
+	{
+		var cb = buildContext.GetBuilder(constructorBuilder);
+		for (var index = 0; index < constructorBuilder.parameters.Count; index++)
+		{
+			_ = cb.DefineParameter(index + 1, ParameterAttributes.None, constructorBuilder.parameters[index].name);
+		}
+
+		var ilGenerator = cb.GetILGenerator();
+		foreach (var local in constructorBuilder.locals)
+			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
+
+		var dictionary = constructorBuilder.parameters.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
+		Int16? ParameterLookup(String s) => dictionary.TryGetValue(s, out var index) ? index : null;
+		var locals = constructorBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
+		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
+		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup, LocalLookup);
+		constructorBuilder.bodyActions.ForEach(a => a.Invoke(body));
+	}
+
+	internal static void BuildAccessors(this PropertyBuilder propertyBuilder, BuildContext buildContext)
+	{
+		if (propertyBuilder.getterBuilder is { } getter)
+			BuildAccessor(getter, buildContext);
+		if (propertyBuilder.setterBuilder is { } setter)
+			BuildAccessor(setter, buildContext);
+	}
+
+	private static void BuildAccessor<T>(AccessorBuilder<T> accessorBuilder, BuildContext buildContext) where T : AccessorBuilder<T>
+	{
+		var mb = buildContext.GetBuilder(accessorBuilder);
+		var ilGenerator = mb.GetILGenerator();
+		foreach (var local in accessorBuilder.locals)
+			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
+
+		var locals = accessorBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
+		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
+		var body = new BodyBuilder(ilGenerator, buildContext, _ => null, LocalLookup);
+		accessorBuilder.bodyActions.ForEach(a => a.Invoke(body));
 	}
 
 	internal static void Build(this EnumBuilder enumBuilder, BuildContext buildContext)
@@ -181,14 +214,14 @@ public static class BuilderExtensions
 
 internal sealed class Definer
 {
-	public static implicit operator Definer(Sre.ModuleBuilder x) => new((name, attributes) => x.DefineGlobalMethod(name, attributes, null, null), x.DefineType);
+	public static implicit operator Definer(Sre.ModuleBuilder x) => new(x.DefineGlobalMethod, x.DefineType);
 	public static implicit operator Definer(Sre.TypeBuilder x) => new(x.DefineMethod, x.DefineNestedType);
-	
-	public delegate Sre.MethodBuilder MethodDefiner(String name, MethodAttributes attributes);
+
+	public delegate Sre.MethodBuilder MethodDefiner(String name, MethodAttributes attributes, Type? returnType, Type[]? parameterTypes);
 	public delegate Sre.TypeBuilder TypeDefiner(String name, TypeAttributes attributes);
-		
+
 	public MethodDefiner DefineMethod { get; }
 	public TypeDefiner DefineType { get; }
-	
+
 	private Definer(MethodDefiner defineMethod, TypeDefiner defineType) => (DefineMethod, DefineType) = (defineMethod, defineType);
 }

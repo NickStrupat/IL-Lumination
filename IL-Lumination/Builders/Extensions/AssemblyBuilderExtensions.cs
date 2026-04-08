@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -82,41 +83,88 @@ public static class AssemblyBuilderExtensions
 				DefineAllType(nestedTypeBuilder, tb);
 			foreach (var @enum in typeBuilder.enums)
 				DefineEnum(@enum, tb);
+			foreach (var methodBuilder in typeBuilder.methods)
+				DefineMethod(methodBuilder, tb);
+			foreach (var constructorBuilder in typeBuilder.constructors)
+				DefineConstructor(constructorBuilder, tb);
+			foreach (var fieldBuilder in typeBuilder.fields)
+				DefineField(fieldBuilder, tb);
+			foreach (var propertyBuilder in typeBuilder.properties)
+				DefineProperty(propertyBuilder, tb);
 			return tb;
 
 			TypeBuilder? GetUnbuiltBuilderOrNull(TypeRef? tr) =>
 				tr is TypeRef.Builder b && builderMap.GetOrNull(b.TypeBuilder) is null ? b.TypeBuilder : null;
+		}
 
-			void DefineEnum(EnumBuilder enumBuilder, Sre.TypeBuilder etb)
+		void DefineEnum(EnumBuilder enumBuilder, Definer definer)
+		{
+			if (String.IsNullOrEmpty(enumBuilder.name))
+				throw new InvalidOperationException("EnumBuilder requires a name to be configured before building.");
+			var eb = definer.DefineType(enumBuilder.name, enumBuilder.visibility | TypeAttributes.Sealed);
+			builderMap.Add(enumBuilder, eb);
+		}
+
+		void DefineMethod(MethodBuilder methodBuilder, Definer definer)
+		{
+			if (String.IsNullOrEmpty(methodBuilder.name))
+				throw new InvalidOperationException("Methods require a name.");
+			var returnType = methodBuilder.returnTypeRef is { } rt ? buildContext.ResolveType(rt) : null;
+			var parameterTypes = methodBuilder.parameters.Count > 0
+				? methodBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray()
+				: null;
+			var mb = definer.DefineMethod(methodBuilder.name!, methodBuilder.visibility | methodBuilder.storageType, returnType, parameterTypes);
+			for (var index = 0; index < methodBuilder.parameters.Count; index++)
+				mb.DefineParameter(index + 1, ParameterAttributes.None, methodBuilder.parameters[index].name);
+			builderMap.Add(methodBuilder, mb);
+		}
+
+		void DefineConstructor(ConstructorBuilder constructorBuilder, Sre.TypeBuilder tb)
+		{
+			var parameterTypes = constructorBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray();
+			var cb = tb.DefineConstructor(constructorBuilder.visibility, CallingConventions.Standard, parameterTypes);
+			builderMap.Add(constructorBuilder, cb);
+		}
+
+		void DefineField(FieldBuilder fieldBuilder, Sre.TypeBuilder tb)
+		{
+			if (String.IsNullOrEmpty(fieldBuilder.name))
+				throw new InvalidOperationException("Fields require a name.");
+			var type = fieldBuilder.typeRef is { } tr ? buildContext.ResolveType(tr) : throw new InvalidOperationException("Fields require a type.");
+			var fb = tb.DefineField(fieldBuilder.name!, type, fieldBuilder.visibility | fieldBuilder.storageType);
+			builderMap.Add(fieldBuilder, fb);
+		}
+
+		void DefineProperty(PropertyBuilder propertyBuilder, Sre.TypeBuilder tb)
+		{
+			if (String.IsNullOrEmpty(propertyBuilder.name))
+				throw new InvalidOperationException("Properties require a name.");
+			var type = propertyBuilder.typeRef is { } tr ? buildContext.ResolveType(tr) : throw new InvalidOperationException("Properties require a type.");
+			var pb = tb.DefineProperty(propertyBuilder.name!, PropertyAttributes.None, CallingConventions.Standard, type, null);
+			builderMap.Add(propertyBuilder, pb);
+			if (propertyBuilder.getterBuilder is { } getterBuilder)
 			{
-				if (String.IsNullOrEmpty(enumBuilder.name))
-					throw new InvalidOperationException("EnumBuilder requires a name to be configured before building.");
-				var eb = etb.DefineNestedType(enumBuilder.name, enumBuilder.visibility | TypeAttributes.Sealed);
-				builderMap.Add(enumBuilder, eb);
+				var getter = tb.DefineMethod("get_" + propertyBuilder.name!, getterBuilder.visibility | MethodAttributes.SpecialName | MethodAttributes.HideBySig | propertyBuilder.storageType, type, null);
+				pb.SetGetMethod(getter);
+				builderMap.Add(getterBuilder, getter);
+			}
+			if (propertyBuilder.setterBuilder is { } setterBuilder)
+			{
+				var setter = tb.DefineMethod("set_" + propertyBuilder.name!, setterBuilder.visibility | MethodAttributes.SpecialName | MethodAttributes.HideBySig | propertyBuilder.storageType, null, [type]);
+				pb.SetSetMethod(setter);
+				builderMap.Add(setterBuilder, setter);
 			}
 		}
-		
-		// First define all types to ensure that references between types can be resolved.
-		// This is a depth-first traversal to ensure base types and interfaces are defined before their
-		// derived types and implementing types.
-		// This also defines enums.
+
+		// Define all types, methods, constructors, fields, and properties.
+		// Types are defined depth-first to ensure base types and interfaces are defined
+		// before their derived types and implementing types.
 		foreach (var gtb in assemblyBuilder.types)
 			DefineAllType(gtb, module);
-		
-		// Define all methods to ensure that method references can be resolved.
-		// This also defines properties and their accessors (which are methods).
-		/////////////foreach (var asdf in assemblyBuilder.methods)
-		
-		// foreach (var gtb in assemblyBuilder.types)
-		// {
-		// 	foreach (var @interface in gtb.interfaces)
-		// 		if (@interface is TypeRef.Builder b && !builderMap.TryGetBuilder(b.TypeBuilder, out _))
-		// 			throw new InvalidOperationException("All interfaces must be defined before their implementing types.");
-		// 	var typeAttributes = gtb.visibility | gtb.classOrNot | gtb.abstractOrSealed;
-		// 	var tb = module.DefineType(gtb.name!, typeAttributes);
-		// 	builderMap.Add(gtb, tb);
-		// }
-		//var buildContext = DefineAllTypesAndMethods(assemblyBuilder, module, coreAssembly);
+		foreach (var @enum in assemblyBuilder.enums)
+			DefineEnum(@enum, module);
+		foreach (var method in assemblyBuilder.methods)
+			DefineMethod(method, module);
 
 		foreach (var type in assemblyBuilder.types)
 			type.Build(buildContext);
@@ -127,7 +175,6 @@ public static class AssemblyBuilderExtensions
 		
 		module.CreateGlobalFunctions();
 
-		//entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.ResolveMethod(ep) : null;
-		entryPoint = ab.EntryPoint;
+		entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.GetBuilder(ep) : null;
 	}
 }

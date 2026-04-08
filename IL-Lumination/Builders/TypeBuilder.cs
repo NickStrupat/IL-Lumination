@@ -201,7 +201,7 @@ public sealed class ConstructorBuilder : IBuilder<System.Reflection.Emit.Constru
 {
 	internal ConstructorBuilder(TypeBuilder containingType) => this.containingType = containingType;
 	internal readonly TypeBuilder containingType;
-	
+
 	internal MethodAttributes visibility { get; private set; }
 	public ConstructorBuilder Private() { this.visibility = MethodAttributes.Private; return this; }
 	public ConstructorBuilder Family() { this.visibility = MethodAttributes.Family; return this; }
@@ -209,16 +209,29 @@ public sealed class ConstructorBuilder : IBuilder<System.Reflection.Emit.Constru
 	public ConstructorBuilder FamilyOrAssembly() { this.visibility = MethodAttributes.FamORAssem; return this; }
 	public ConstructorBuilder Assembly() { this.visibility = MethodAttributes.Assembly; return this; }
 	public ConstructorBuilder Public() { this.visibility = MethodAttributes.Public; return this; }
-	
+
 	internal readonly List<ParameterBuilderBase> parameters = new();
 
 	public ConstructorBuilder NewParameter(out ParameterBuilder parameterBuilder, Action<ParameterBuilder> parameterBuilderAction) =>
 		this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
 	public ConstructorBuilder NewParameter(out ParameterBuilder parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
 	public ConstructorBuilder NewParameter(Action<ParameterBuilder> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
-	
+
 	public ConstructorBuilder NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder, Action<ParameterBuilder<TParam>> parameterBuilderAction) =>
 		this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
 	public ConstructorBuilder NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
 	public ConstructorBuilder NewParameter<TParam>(Action<ParameterBuilder<TParam>> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
+
+	internal readonly List<LocalBuilderBase> locals = new();
+
+	public ConstructorBuilder NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
+	public ConstructorBuilder NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
+	public ConstructorBuilder NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
+
+	public ConstructorBuilder NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
+	public ConstructorBuilder NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
+	public ConstructorBuilder NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
+
+	internal readonly List<Action<BodyBuilder>> bodyActions = new();
+	public ConstructorBuilder Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return this; }
 }

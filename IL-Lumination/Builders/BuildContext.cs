@@ -19,7 +19,7 @@ internal sealed class BuildContext(BuilderMap builderMap, Assembly? coreAssembly
 		//if (method.Module.Assembly == coreAssembly)
 		if (coreAssembly is null)
 			return method;
-		var parameterTypes = method.GetParameters().Select(x => x.ParameterType).ToArray();
+		var parameterTypes = method.GetParameters().Select(x => GetCoreAssemblyType(x.ParameterType)).ToArray();
 		if (method.DeclaringType is { } dt)
 		{
 			// var bindingFlags = method.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
