@@ -1,117 +1,14 @@
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
-using static System.Reflection.Emit.AssemblyBuilderAccess;
+
 using Sre = System.Reflection.Emit;
-using Task = System.Threading.Tasks.Task;
 
 namespace Illumination.Builders;
 
 public static class BuilderExtensions
 {
-
-	private static MethodInfo GetCreatedMethodInfo(this Sre.MethodBuilder methodBuilder)
-	{
-        var dt = methodBuilder.DeclaringType;
-        return null!;
-	}
-
-	private static BuildContext DefineAllTypesAndMethods(
-		AssemblyBuilder assemblyBuilder,
-		Sre.ModuleBuilder mb,
-		Assembly? coreAssembly)
-	{
-		var builderMap = new BuilderMap();
-		var buildContext = new BuildContext(builderMap, coreAssembly);
-
-		foreach (var type in assemblyBuilder.types)
-			DefineTypesInternal(type, mb);
-		foreach (var @enum in assemblyBuilder.enums)
-			DefineEnumsInternal(@enum, mb);
-		foreach (var method in assemblyBuilder.methods)
-			DefineMethodInternal(method, mb);
-		return buildContext;
-
-		void DefineTypesInternal(TypeBuilder typeBuilder, Definer definer)
-		{
-			var typeAttributes = typeBuilder.visibility | typeBuilder.classOrNot | typeBuilder.abstractOrSealed;
-			var tb = definer.DefineType(typeBuilder.name!, typeAttributes);
-			builderMap.Add(typeBuilder, tb);
-			foreach (var nestedTypeBuilder in typeBuilder.types)
-				DefineTypesInternal(nestedTypeBuilder, tb);
-			foreach (var @enum in typeBuilder.enums)
-				DefineEnumsInternal(@enum, tb);
-			foreach (var constructorBuilder in typeBuilder.constructors)
-				DefineConstructorInternal(constructorBuilder, tb);
-			foreach (var nestedMethodBuilder in typeBuilder.methods)
-				DefineMethodInternal(nestedMethodBuilder, tb);
-			foreach (var field in typeBuilder.fields)
-				DefineFieldInternal(field, tb);
-			foreach (var property in typeBuilder.properties)
-				DefinePropertyInternal(property, tb);
-		}
-		
-		void DefineEnumsInternal(EnumBuilder enumBuilder, Definer definer)
-		{
-			if (String.IsNullOrEmpty(enumBuilder.name))
-				throw new InvalidOperationException("EnumBuilder requires a name to be configured before building.");
-			var tb = definer.DefineType(enumBuilder.name, enumBuilder.visibility | TypeAttributes.Sealed);
-			builderMap.Add(enumBuilder, tb);
-		}
-		
-		void DefineConstructorInternal(ConstructorBuilder constructorBuilder, Sre.TypeBuilder typeBuilder)
-		{
-			var parameterTypes = constructorBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray();
-			var cb = typeBuilder.DefineConstructor(constructorBuilder.visibility, CallingConventions.Standard, parameterTypes);
-			builderMap.Add(constructorBuilder, cb);
-		}
-
-		void DefineMethodInternal(MethodBuilder methodBuilder, Definer definer)
-		{
-			if (String.IsNullOrEmpty(methodBuilder.name))
-				throw new InvalidOperationException("Methods require a name.");
-			var returnType = methodBuilder.returnTypeRef is { } rt ? buildContext.ResolveType(rt) : null;
-			var parameterTypes = methodBuilder.parameters.Count > 0
-				? methodBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray()
-				: null;
-			var mb = definer.DefineMethod(methodBuilder.name!, methodBuilder.visibility | methodBuilder.storageType, returnType, parameterTypes);
-			builderMap.Add(methodBuilder, mb);
-		}
-
-		void DefineFieldInternal(FieldBuilder fieldBuilder, Sre.TypeBuilder typeBuilder)
-		{
-			if (String.IsNullOrEmpty(fieldBuilder.name))
-				throw new InvalidOperationException("Methods require a name.");
-			var type = fieldBuilder.typeRef is { } tr ? buildContext.ResolveType(tr) : throw new InvalidOperationException("Fields require a type.");
-			var fb = typeBuilder.DefineField(fieldBuilder.name!, type, fieldBuilder.visibility | fieldBuilder.storageType);
-			builderMap.Add(fieldBuilder, fb);
-		}
-
-		void DefinePropertyInternal(PropertyBuilder propertyBuilder, Sre.TypeBuilder typeBuilder)
-		{
-			if (String.IsNullOrEmpty(propertyBuilder.name))
-				throw new InvalidOperationException("Methods require a name.");
-			var type = propertyBuilder.typeRef is { } tr ? buildContext.ResolveType(tr) : throw new InvalidOperationException("Properties require a type.");
-			var pb = typeBuilder.DefineProperty(propertyBuilder.name!, PropertyAttributes.None, CallingConventions.Standard, type, null);
-			builderMap.Add(propertyBuilder, pb);
-			if (propertyBuilder.setterBuilder != null)
-			{
-				var setter = typeBuilder.DefineMethod("set_" + propertyBuilder.name!, propertyBuilder.setterBuilder.visibility, type, null);
-				pb.SetSetMethod(setter);
-				builderMap.Add(propertyBuilder.setterBuilder, setter);
-			}
-			if (propertyBuilder.getterBuilder != null)
-			{
-				var getter = typeBuilder.DefineMethod("get_" + propertyBuilder.name!, propertyBuilder.getterBuilder.visibility, type, null);
-				pb.SetGetMethod(getter);
-				builderMap.Add(propertyBuilder.getterBuilder, getter);
-			}
-		}
-	}
-
 	internal static Sre.MethodBuilder Build(this MethodBuilder methodBuilder, BuildContext buildContext)
 	{
 		var mb = buildContext.GetBuilder(methodBuilder);
@@ -149,6 +46,13 @@ public static class BuilderExtensions
 			constructorBuilder.Build(buildContext);
 		foreach (var propertyBuilder in typeBuilder.properties)
 			propertyBuilder.BuildAccessors(buildContext);
+		foreach (var eventBuilder in typeBuilder.events)
+		{
+			if (eventBuilder.addMethodBuilder is { } addBuilder)
+				addBuilder.Build(buildContext);
+			if (eventBuilder.removeMethodBuilder is { } removeBuilder)
+				removeBuilder.Build(buildContext);
+		}
 
 		tb.CreateType();
 	}
@@ -156,11 +60,6 @@ public static class BuilderExtensions
 	internal static void Build(this ConstructorBuilder constructorBuilder, BuildContext buildContext)
 	{
 		var cb = buildContext.GetBuilder(constructorBuilder);
-		for (var index = 0; index < constructorBuilder.parameters.Count; index++)
-		{
-			_ = cb.DefineParameter(index + 1, ParameterAttributes.None, constructorBuilder.parameters[index].name);
-		}
-
 		var ilGenerator = cb.GetILGenerator();
 		foreach (var local in constructorBuilder.locals)
 			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
@@ -196,9 +95,12 @@ public static class BuilderExtensions
 
 	internal static void Build(this EnumBuilder enumBuilder, BuildContext buildContext)
 	{
+		if (enumBuilder.literals.DistinctBy(x => x.name).Count() != enumBuilder.literals.Count)
+			throw new InvalidOperationException("Enum literals must have unique names.");
 		var eb = buildContext.GetBuilder(enumBuilder);
 		eb.SetParent(buildContext.GetCoreAssemblyType(typeof(Enum)));
 		eb.DefineField("value__", buildContext.GetCoreAssemblyType(enumBuilder.underlyingType), FieldAttributes.Private | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName);
+		// enumBuilder.literals.Sort((x, y) => y.value - x.value);
 		foreach (var enumBuilderLiteral in enumBuilder.literals)
 		{
 			if (String.IsNullOrEmpty(enumBuilderLiteral.name))

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Reflection;
 
 namespace Illumination.Builders;
 
@@ -45,6 +46,11 @@ public sealed class AssemblyBuilder : IBuilder<System.Reflection.Emit.AssemblyBu
 	// {
 	// 	globalTypeBuilder
 	// }
+
+	internal readonly List<CustomAttributeBuilder> customAttributes = new();
+	public AssemblyBuilder AddCustomAttribute(Type attributeType) => AddCustomAttribute(attributeType.GetConstructor(Type.EmptyTypes)!, []);
+	public AssemblyBuilder AddCustomAttribute(ConstructorInfo constructor, params Object[] constructorArgs) { customAttributes.Add(new(constructor, constructorArgs, null, null, null, null)); return this; }
+	public AssemblyBuilder AddCustomAttribute(CustomAttributeBuilder customAttributeBuilder) { customAttributes.Add(customAttributeBuilder); return this; }
 
 	internal MethodBuilder? entryPoint;
 	public AssemblyBuilder EntryPoint(MethodBuilder entryPoint) { this.entryPoint = entryPoint; return this; }

@@ -15,11 +15,13 @@ public abstract class MethodBuilder : IBuilder<System.Reflection.Emit.MethodBuil
 	internal String? name { get; private protected set; }
 	internal MethodAttributes visibility { get; private protected set; }
 	internal MethodAttributes storageType { get; private protected set; }
+	internal MethodAttributes virtuality { get; private protected set; }
 	internal TypeRef returnTypeRef { get; private protected set; } = typeof(void);
 	internal readonly List<ParameterBuilderBase> parameters = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();
 	internal readonly List<LocalBuilderBase> locals = new();
+	internal readonly List<CustomAttributeBuilder> customAttributes = new();
 }
 
 public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T>
@@ -56,6 +58,10 @@ public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T
 	public T NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
 	
 	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
+
+	public T AddCustomAttribute(Type attributeType) => AddCustomAttribute(attributeType.GetConstructor(Type.EmptyTypes)!, []);
+	public T AddCustomAttribute(ConstructorInfo constructor, params Object[] constructorArgs) { customAttributes.Add(new(constructor, constructorArgs, null, null, null, null)); return (T)this; }
+	public T AddCustomAttribute(CustomAttributeBuilder customAttributeBuilder) { customAttributes.Add(customAttributeBuilder); return (T)this; }
 }
 
 public sealed class GlobalMethodBuilder : MethodBuilder<GlobalMethodBuilder>
@@ -81,6 +87,11 @@ public sealed class NestedMethodBuilder : MethodBuilder<NestedMethodBuilder>
 	
 	public NestedMethodBuilder Static() { this.storageType = MethodAttributes.Static; return this; }
 	public NestedMethodBuilder NonStatic() { this.storageType = default; return this; }
-	
+
+	public NestedMethodBuilder Virtual() { this.virtuality = MethodAttributes.Virtual | MethodAttributes.NewSlot | MethodAttributes.HideBySig; return this; }
+	public NestedMethodBuilder Abstract() { this.virtuality = MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot | MethodAttributes.HideBySig; return this; }
+	public NestedMethodBuilder Override() { this.virtuality = MethodAttributes.Virtual | MethodAttributes.HideBySig; return this; }
+	public NestedMethodBuilder SealedOverride() { this.virtuality = MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.Final; return this; }
+
 	public NestedMethodBuilder EntryPoint() { this.containingType.assemblyBuilder.entryPoint = this; return this; }
 }

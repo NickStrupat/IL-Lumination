@@ -15,14 +15,13 @@ public class BodyTests
     [InlineData(-3, -1, -2)]
     public void Add(Int32 result, Int32 a, Int32 b)
     {
-        var int32 = typeof(Int32);
-        var dm = new DynamicMethod("", int32, [int32, int32]);
+        var dm = new DynamicFunc<Int32, Int32, Int32>();
         var body = dm.GetILGenerator().Body();
         body.Ldarg_S(0).Ldarg(1).Add().Ret();
-        var del = dm.CreateDelegate<Func<Int32, Int32, Int32>>();
+        var del = dm.CreateDelegate();
         Assert.Equal(result, del(a, b));
     }
-    
+
     [Theory]
     [InlineData(3, 1, 2)]
     [InlineData(5, 2, 3)]
@@ -90,7 +89,7 @@ public class BodyTests
         var actual = del(@throw);
         Assert.Equal(expected, actual);
     }
-    
+
     public static int Try_Catch4(bool b)
     {
         try

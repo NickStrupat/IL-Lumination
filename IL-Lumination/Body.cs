@@ -12,12 +12,36 @@ public static class BodyExtensions
 	public static Body Body(this DynamicMethod dm) => dm.GetILGenerator().Body();
 	public static Body Body<TDel>(this DynamicMethod<TDel> dm) where TDel : Delegate => dm.GetILGenerator().Body();
 	
-	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, ReadOnlySpan<Action<TBody>> catchBodies, Action<TBody>? finallyBody) where TBody : BodyBase<TBody>
+	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TBody>? finallyBody = null) where TBody : BodyBase<TBody>
 	{
-		
-		
+		body.BeginExceptionBlock();
+		tryBody(body);
+		if (finallyBody != null)
+		{
+			body.BeginFinallyBlock();
+			finallyBody(body);
+		}
+		body.EndExceptionBlock();
 		return body;
 	}
+
+	public static TBody TryCatch<TBody>(this TBody body, Action<TBody> tryBody, Type exceptionType, Action<TBody> catchBody, Action<TBody>? finallyBody = null) where TBody : BodyBase<TBody>
+	{
+		body.BeginExceptionBlock();
+		tryBody(body);
+		body.BeginCatchBlock(exceptionType);
+		catchBody(body);
+		if (finallyBody != null)
+		{
+			body.BeginFinallyBlock();
+			finallyBody(body);
+		}
+		body.EndExceptionBlock();
+		return body;
+	}
+
+	public static TBody TryCatch<TBody, TException>(this TBody body, Action<TBody> tryBody, Action<TBody> catchBody, Action<TBody>? finallyBody = null) where TBody : BodyBase<TBody> where TException : Exception
+		=> body.TryCatch(tryBody, typeof(TException), catchBody, finallyBody);
 }
 
 public static class BodyAddExtensions
@@ -775,6 +799,18 @@ public abstract class BodyBase<TBody> where TBody : BodyBase<TBody>
 	/// <inheritdoc cref="OpCodes.Stloc"/>
 	public TBody Stloc(LocalBuilder local) => Emit(OpCodes.Stloc, local);
 
+	/// <inheritdoc cref="OpCodes.Stloc_0"/>
+	public TBody Stloc_0() => Emit(OpCodes.Stloc_0);
+
+	/// <inheritdoc cref="OpCodes.Stloc_1"/>
+	public TBody Stloc_1() => Emit(OpCodes.Stloc_1);
+
+	/// <inheritdoc cref="OpCodes.Stloc_2"/>
+	public TBody Stloc_2() => Emit(OpCodes.Stloc_2);
+
+	/// <inheritdoc cref="OpCodes.Stloc_3"/>
+	public TBody Stloc_3() => Emit(OpCodes.Stloc_3);
+
 	/// <inheritdoc cref="OpCodes.Stloc_S"/>
 	public TBody Stloc_S(Byte index) => Emit(OpCodes.Stloc_S, index);
 
@@ -858,5 +894,17 @@ public abstract class BodyBase<TBody> where TBody : BodyBase<TBody>
 	
 	/// <inheritdoc cref="ILGenerator.EndExceptionBlock"/>
 	public TBody EndExceptionBlock() { il.EndExceptionBlock(); return This; }
-	
+
+	/// <inheritdoc cref="ILGenerator.BeginFinallyBlock"/>
+	public TBody BeginFinallyBlock() { il.BeginFinallyBlock(); return This; }
+
+	/// <inheritdoc cref="ILGenerator.BeginFaultBlock"/>
+	public TBody BeginFaultBlock() { il.BeginFaultBlock(); return This; }
+
+	/// <inheritdoc cref="ILGenerator.BeginScope"/>
+	public TBody BeginScope() { il.BeginScope(); return This; }
+
+	/// <inheritdoc cref="ILGenerator.EndScope"/>
+	public TBody EndScope() { il.EndScope(); return This; }
+
 }

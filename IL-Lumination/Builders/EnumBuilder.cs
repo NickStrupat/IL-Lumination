@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
-using NickStrupat;
 
 namespace Illumination.Builders;
 
@@ -19,8 +18,8 @@ public abstract class EnumBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 	internal String? name { get; private protected set; }
 	internal TypeAttributes visibility { get; private protected set; }
 	internal Type underlyingType { get; private protected set; }
-	internal readonly HashSet<EnumLiteralBuilderBase> literals = new(EqCmp<EnumLiteralBuilderBase>.Create(x => x.name));
-	
+	internal readonly List<EnumLiteralBuilderBase> literals = new();
+
 	private protected static class UnderlyingTypes
 	{
 		private static readonly FrozenSet<Type> validUnderlyingTypes =
@@ -34,7 +33,7 @@ public abstract class EnumBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 			typeof(UInt64),
 			typeof(Int64)
 		];
-		
+
 		public static Type Validate(Type type)
 		{
 			if (validUnderlyingTypes.Contains(type))
@@ -49,7 +48,7 @@ public abstract class EnumBuilder : IBuilder<System.Reflection.Emit.TypeBuilder>
 public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 {
 	private protected EnumBuilder(TypeAttributes visibility) : base(visibility, typeof(Int32)) {}
-	
+
 	public T Name(String name) { this.name = name; return (T)this; }
 
 	public T UnderlyingType(Type underlyingType) { this.underlyingType = UnderlyingTypes.Validate(underlyingType); return (T)this; }
@@ -64,7 +63,7 @@ public abstract class EnumBuilder<T> : EnumBuilder where T : EnumBuilder<T>
 public abstract class EnumBuilder<T, TUnderlying> : EnumBuilder where T : EnumBuilder<T, TUnderlying> where TUnderlying : struct, IBinaryInteger<TUnderlying>
 {
 	private protected EnumBuilder(TypeAttributes visibility) : base(visibility, typeof(TUnderlying)) {}
-	
+
 	public T Name(String name) { this.name = name; return (T)this; }
 
 	public T NewLiteral(out EnumLiteralBuilder<TUnderlying> enumLiteralBuilder, Action<EnumLiteralBuilder<TUnderlying>> action) =>
@@ -94,7 +93,7 @@ public sealed class GlobalEnumBuilder<TUnderlying> : EnumBuilder<GlobalEnumBuild
 public sealed class NestedEnumBuilder : EnumBuilder<NestedEnumBuilder>
 {
 	internal NestedEnumBuilder() : base(TypeAttributes.NestedPrivate) {}
-	
+
 	public NestedEnumBuilder Private() { this.visibility = TypeAttributes.NestedPrivate; return this; }
 	public NestedEnumBuilder Family() { this.visibility = TypeAttributes.NestedFamily; return this; }
 	public NestedEnumBuilder FamilyAndAssembly() { this.visibility = TypeAttributes.NestedFamANDAssem; return this; }

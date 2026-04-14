@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Illumination.Builders;
 
-public sealed class TypeParameterBuilder : IBuilder<System.Reflection.Emit.ParameterBuilder>
+public sealed class TypeParameterBuilder : IBuilder<System.Reflection.Emit.GenericTypeParameterBuilder>
 {
 	internal TypeParameterBuilder() {}
 	
@@ -21,6 +21,8 @@ public sealed class TypeParameterBuilder : IBuilder<System.Reflection.Emit.Param
 	public TypeParameterBuilder Invariant() { variance = GenericParameterAttributes.None; return this; }
 	public TypeParameterBuilder Covariant() { variance = GenericParameterAttributes.Covariant; return this; }
 	public TypeParameterBuilder Contravariant() { variance = GenericParameterAttributes.Contravariant; return this; }
-	public TypeParameterBuilder Constraint(GenericParameterAttributes attributes) { special |= attributes; return this; }
+	public TypeParameterBuilder ReferenceTypeConstraint() { special = (special & ~GenericParameterAttributes.NotNullableValueTypeConstraint) | GenericParameterAttributes.ReferenceTypeConstraint; return this; }
+	public TypeParameterBuilder NotNullableValueTypeConstraint() { special = GenericParameterAttributes.NotNullableValueTypeConstraint; return this; }
+	public TypeParameterBuilder DefaultConstructorConstraint() { special = (special & ~GenericParameterAttributes.NotNullableValueTypeConstraint) | GenericParameterAttributes.DefaultConstructorConstraint; return this; }
 	public TypeParameterBuilder AllowByRefLike() { allowByRefLike = GenericParameterAttributes.AllowByRefLike; return this; }
 }

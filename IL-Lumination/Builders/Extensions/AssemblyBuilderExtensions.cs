@@ -44,11 +44,12 @@ public static class AssemblyBuilderExtensions
 		coreAssembly = mlc.CoreAssembly ?? throw new Exception("Core assembly not found.");
 		var pab = new Sre.PersistedAssemblyBuilder(new(assemblyBuilder.name ?? Path.GetFileNameWithoutExtension(path)), coreAssembly);
 
+		var runtimeVersion = Environment.Version;
 		var targetFrameworkAttributeBuilder = new Sre.CustomAttributeBuilder(
 			typeof(TargetFrameworkAttribute).GetConstructor([typeof(String)])!,
-			[".NETCoreApp,Version=v9.0"],
+			[$".NETCoreApp,Version=v{runtimeVersion.Major}.{runtimeVersion.Minor}"],
 			[typeof(TargetFrameworkAttribute).GetProperty(nameof(TargetFrameworkAttribute.FrameworkDisplayName))!],
-			[".NET 9.0"]);
+			[$".NET {runtimeVersion.Major}.{runtimeVersion.Minor}"]);
 		pab.SetCustomAttribute(targetFrameworkAttributeBuilder);
 		return pab;
 	}
@@ -63,13 +64,14 @@ public static class AssemblyBuilderExtensions
 		var packsDir = Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref");
 		if (!Directory.Exists(packsDir))
 			throw new DirectoryNotFoundException($"Reference assembly pack not found at: {packsDir}");
-		// Find the latest 9.x version
+		var runtimeVersion = Environment.Version;
+		var majorPrefix = runtimeVersion.Major + ".";
 		var latestVersion = Directory.GetDirectories(packsDir)
 			.Select(Path.GetFileName)
-			.Where(v => v!.StartsWith("9."))
+			.Where(v => v!.StartsWith(majorPrefix))
 			.OrderByDescending(v => v)
-			.FirstOrDefault() ?? throw new InvalidOperationException("No .NET 9 reference assembly pack found.");
-		return Path.Combine(packsDir, latestVersion, "ref", "net9.0");
+			.FirstOrDefault() ?? throw new InvalidOperationException($"No .NET {runtimeVersion.Major} reference assembly pack found.");
+		return Path.Combine(packsDir, latestVersion, "ref", $"net{runtimeVersion.Major}.0");
 	}
 
 	private static void Build(
@@ -79,7 +81,8 @@ public static class AssemblyBuilderExtensions
 		out MethodInfo? entryPoint)
 	{
 		var module = ab.DefineDynamicModule("<Module>"); // only one module is allowed since .NET 5 (https://learn.microsoft.com/en-us/dotnet/api/system.reflection.emit.assemblybuilder.definedynamicmodule?view=net-5.0#:~:text=Remarks)
-		var definerMap = new DefinerMap();
+		foreach (var ca in assemblyBuilder.customAttributes)
+			ab.SetCustomAttribute(ca.ToSre());
 		var builderMap = new BuilderMap();
 		var buildContext = new BuildContext(builderMap, coreAssembly);
 
@@ -96,6 +99,10 @@ public static class AssemblyBuilderExtensions
 				if (GetUnbuiltBuilderOrNull(typeRef) is {} itb)
 					DefineAllType(itb, definer);
 			builderMap.Add(typeBuilder, tb);
+			if (typeBuilder.typeParameters.Count > 0)
+				DefineGenericParameters(typeBuilder.typeParameters, tb.DefineGenericParameters(typeBuilder.typeParameters.Select(x => x.name ?? throw new InvalidOperationException("Type parameters require a name.")).ToArray()));
+			foreach (var ca in typeBuilder.customAttributes)
+				tb.SetCustomAttribute(ca.ToSre());
 			foreach (var nestedTypeBuilder in typeBuilder.types)
 				DefineAllType(nestedTypeBuilder, tb);
 			foreach (var @enum in typeBuilder.enums)
@@ -108,6 +115,8 @@ public static class AssemblyBuilderExtensions
 				DefineField(fieldBuilder, tb);
 			foreach (var propertyBuilder in typeBuilder.properties)
 				DefineProperty(propertyBuilder, tb);
+			foreach (var eventBuilder in typeBuilder.events)
+				DefineEvent(eventBuilder, tb);
 			return tb;
 
 			TypeBuilder? GetUnbuiltBuilderOrNull(TypeRef? tr) =>
@@ -130,16 +139,34 @@ public static class AssemblyBuilderExtensions
 			var parameterTypes = methodBuilder.parameters.Count > 0
 				? methodBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray()
 				: null;
-			var mb = definer.DefineMethod(methodBuilder.name!, methodBuilder.visibility | methodBuilder.storageType, returnType, parameterTypes);
+			var mb = definer.DefineMethod(methodBuilder.name!, methodBuilder.visibility | methodBuilder.storageType | methodBuilder.virtuality, returnType, parameterTypes);
+			if (methodBuilder.typeParameters.Count > 0)
+				DefineGenericParameters(methodBuilder.typeParameters, mb.DefineGenericParameters(methodBuilder.typeParameters.Select(x => x.name ?? throw new InvalidOperationException("Type parameters require a name.")).ToArray()));
 			for (var index = 0; index < methodBuilder.parameters.Count; index++)
-				mb.DefineParameter(index + 1, ParameterAttributes.None, methodBuilder.parameters[index].name);
+			{
+				var p = methodBuilder.parameters[index];
+				var pb = mb.DefineParameter(index + 1, p.attributes, p.name);
+				if (p.hasDefaultValue)
+					pb.SetConstant(p.defaultValue);
+			}
+			foreach (var ca in methodBuilder.customAttributes)
+				mb.SetCustomAttribute(ca.ToSre());
 			builderMap.Add(methodBuilder, mb);
 		}
 
 		void DefineConstructor(ConstructorBuilder constructorBuilder, Sre.TypeBuilder tb)
 		{
 			var parameterTypes = constructorBuilder.parameters.Select(x => buildContext.ResolveType(x.typeRef!)).ToArray();
-			var cb = tb.DefineConstructor(constructorBuilder.visibility, CallingConventions.Standard, parameterTypes);
+			var cb = tb.DefineConstructor(constructorBuilder.visibility | constructorBuilder.storageType, CallingConventions.Standard, parameterTypes);
+			for (var index = 0; index < constructorBuilder.parameters.Count; index++)
+			{
+				var p = constructorBuilder.parameters[index];
+				var pb = cb.DefineParameter(index + 1, p.attributes, p.name);
+				if (p.hasDefaultValue)
+					pb.SetConstant(p.defaultValue);
+			}
+			foreach (var ca in constructorBuilder.customAttributes)
+				cb.SetCustomAttribute(ca.ToSre());
 			builderMap.Add(constructorBuilder, cb);
 		}
 
@@ -148,7 +175,11 @@ public static class AssemblyBuilderExtensions
 			if (String.IsNullOrEmpty(fieldBuilder.name))
 				throw new InvalidOperationException("Fields require a name.");
 			var type = fieldBuilder.typeRef is { } tr ? buildContext.ResolveType(tr) : throw new InvalidOperationException("Fields require a type.");
-			var fb = tb.DefineField(fieldBuilder.name!, type, fieldBuilder.visibility | fieldBuilder.storageType);
+			var fb = tb.DefineField(fieldBuilder.name!, type, fieldBuilder.visibility | fieldBuilder.storageType | fieldBuilder.mutability);
+			if (fieldBuilder.hasConstantValue)
+				fb.SetConstant(fieldBuilder.constantValue);
+			foreach (var ca in fieldBuilder.customAttributes)
+				fb.SetCustomAttribute(ca.ToSre());
 			builderMap.Add(fieldBuilder, fb);
 		}
 
@@ -173,6 +204,45 @@ public static class AssemblyBuilderExtensions
 			}
 		}
 
+		void DefineEvent(EventBuilder eventBuilder, Sre.TypeBuilder tb)
+		{
+			if (String.IsNullOrEmpty(eventBuilder.name))
+				throw new InvalidOperationException("Events require a name.");
+			var handlerType = eventBuilder.eventHandlerTypeRef is { } tr ? buildContext.ResolveType(tr) : throw new InvalidOperationException("Events require a handler type.");
+			var eb = tb.DefineEvent(eventBuilder.name!, EventAttributes.None, handlerType);
+			builderMap.Add(eventBuilder, eb);
+			if (eventBuilder.addMethodBuilder is { } addBuilder)
+			{
+				DefineMethod(addBuilder, tb);
+				eb.SetAddOnMethod(buildContext.GetBuilder(addBuilder));
+			}
+			if (eventBuilder.removeMethodBuilder is { } removeBuilder)
+			{
+				DefineMethod(removeBuilder, tb);
+				eb.SetRemoveOnMethod(buildContext.GetBuilder(removeBuilder));
+			}
+			// if (eventBuilder.raiseMethodBuilder is { } raiseBuilder)
+			// {
+			// 	DefineMethod(raiseBuilder, tb);
+			// 	eb.SetRaiseMethod(buildContext.GetBuilder(raiseBuilder));
+			// }
+		}
+
+		void DefineGenericParameters(List<TypeParameterBuilder> typeParameterBuilders, Sre.GenericTypeParameterBuilder[] gps)
+		{
+			for (var i = 0; i < typeParameterBuilders.Count; i++)
+			{
+				var tpb = typeParameterBuilders[i];
+				var gp = gps[i];
+				gp.SetGenericParameterAttributes(tpb.variance | tpb.special | tpb.allowByRefLike);
+				if (tpb.baseType is { } bt)
+					gp.SetBaseTypeConstraint(buildContext.ResolveType(bt));
+				foreach (var iface in tpb.interfaces)
+					gp.SetInterfaceConstraints(buildContext.ResolveType(iface));
+				builderMap.Add(tpb, gp);
+			}
+		}
+
 		// Define all types, methods, constructors, fields, and properties.
 		// Types are defined depth-first to ensure base types and interfaces are defined
 		// before their derived types and implementing types.
@@ -189,7 +259,7 @@ public static class AssemblyBuilderExtensions
 			method.Build(buildContext);
 		foreach (var @enum in assemblyBuilder.enums)
 			@enum.Build(buildContext);
-		
+
 		module.CreateGlobalFunctions();
 
 		entryPoint = assemblyBuilder.entryPoint is {} ep ? buildContext.GetBuilder(ep) : null;

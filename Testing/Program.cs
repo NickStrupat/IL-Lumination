@@ -1,4 +1,5 @@
-﻿using Illumination.Builders;
+﻿using System.Reflection;
+using Illumination.Builders;
 using Illumination.Builders.Extensions;
 
 Action<String> println = Console.WriteLine;
@@ -16,11 +17,48 @@ var assemblyBuilder = new AssemblyBuilder()
 				.Ret()
 			)
 		)
-		.NewField(out var text, x => x.Public().Type<String>().Name("text"))
-		.NewProperty(x => x.Type<String>().Name("Test")
-			.Get(x => x.Public().Body(x => x.Ldarg_0().Ldfld(text).Ret()))
-			.Set(x => x.Public().Body(x => x.Ldarg_0().Ldarg_1().Stfld(text).Ret()))
-		)
+		.NewAutoProperty(x => x.Public().Type<String>().Name("Text"))
+		.NewAutoEvent(x => x.Public().Name("Notify").HandlerType<Action>())
+		// .NewEvent(e => e.Name("OnNotify").HandlerType<Action>()
+		// 	.AddMethod(m => m.Public().Name("add_OnNotify")
+		// 		.NewParameter<Action>(p => p.Name("value"))
+		// 		.NewLocal<Action>(out var addCurrent)
+		// 		.NewLocal<Action>(out var addPrevious)
+		// 		.Body(b => b
+		// 			.Ldarg_0().Ldfld(onNotifyField).Stloc(addCurrent)
+		// 			.DefineLabel(out var addLoop).MarkLabel(addLoop)
+		// 			.Ldloc(addCurrent).Stloc(addPrevious)
+		// 			.Ldarg_0().Ldflda(onNotifyField)
+		// 			.Ldloc(addPrevious).Ldarg_1()
+		// 			.Call(typeof(Delegate).GetMethod(nameof(Delegate.Combine), [typeof(Delegate), typeof(Delegate)])!)
+		// 			.Castclass<Action>()
+		// 			.Ldloc(addPrevious)
+		// 			.Call(compareExchange)
+		// 			.Stloc(addCurrent)
+		// 			.Ldloc(addCurrent).Ldloc(addPrevious).Bne_Un(addLoop)
+		// 			.Ret()
+		// 		)
+		// 	)
+		// 	.RemoveMethod(m => m.Public().Name("remove_OnNotify")
+		// 		.NewParameter<Action>(p => p.Name("value"))
+		// 		.NewLocal<Action>(out var removeCurrent)
+		// 		.NewLocal<Action>(out var removePrevious)
+		// 		.Body(b => b
+		// 			.Ldarg_0().Ldfld(onNotifyField).Stloc(removeCurrent)
+		// 			.DefineLabel(out var removeLoop).MarkLabel(removeLoop)
+		// 			.Ldloc(removeCurrent).Stloc(removePrevious)
+		// 			.Ldarg_0().Ldflda(onNotifyField)
+		// 			.Ldloc(removePrevious).Ldarg_1()
+		// 			.Call(typeof(Delegate).GetMethod(nameof(Delegate.Remove), [typeof(Delegate), typeof(Delegate)])!)
+		// 			.Castclass<Action>()
+		// 			.Ldloc(removePrevious)
+		// 			.Call(compareExchange)
+		// 			.Stloc(removeCurrent)
+		// 			.Ldloc(removeCurrent).Ldloc(removePrevious).Bne_Un(removeLoop)
+		// 			.Ret()
+		// 		)
+		// 	)
+		// )
 	)
 	.NewType(t => t.Name("TestType").BaseType(baseType))
 	.NewEnum<Byte>(e => e.Name("enum").Public()
@@ -40,9 +78,13 @@ var assembly = assemblyBuilder.Create();
 var type = assembly.GetType("BaseType")!;
 type.GetMethod("Log")!.CreateDelegate<Action<String>>().Invoke("test");
 var baseType2 = Activator.CreateInstance(type);
-var testProp = type.GetProperty("Test")!;
+var testProp = type.GetProperty("Text")!;
 testProp.SetValue(baseType2, "wow");
 Console.WriteLine(testProp.GetValue(baseType2));
+var onNotifyEvent = type.GetEvent("Notify")!;
+Action handler = () => Console.WriteLine("event fired");
+onNotifyEvent.AddEventHandler(baseType2, handler);
+((Action)type.GetField("Notify", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(baseType2)!).Invoke();
 
 await assemblyBuilder.Save("TestAssembly.dll");
 var loaded = System.Reflection.Assembly.LoadFrom(Path.GetFullPath("TestAssembly.dll"));
