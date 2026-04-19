@@ -62,6 +62,7 @@ public static class PersistedAssemblyBuilderExtensions
 		var savePath = Path.Combine(tempDir.Value.FullName, filename);
 		await assemblyBuilder.Save(savePath, entryPoint);
 		const String projectName = "Runner";
+		var publishDir = Path.Combine(tempDir.Value.FullName, "publish");
 		await File.WriteAllTextAsync(
 			Path.Combine(tempDir.Value.FullName, $"{projectName}.csproj"),
 			$"""
@@ -72,7 +73,8 @@ public static class PersistedAssemblyBuilderExtensions
 					<TargetFramework>net9.0</TargetFramework>
 					<Nullable>enable</Nullable>
 					<SelfContained>false</SelfContained>
-					<PublishDir>{absoluteDirectory}</PublishDir>
+					<PublishSingleFile>true</PublishSingleFile>
+					<PublishDir>{publishDir}</PublishDir>
 					<DebugType>none</DebugType>
 					<DebugSymbols>false</DebugSymbols>
 				</PropertyGroup>
@@ -87,7 +89,6 @@ public static class PersistedAssemblyBuilderExtensions
 			(entryPoint.ReturnType.FullName == typeof(void).FullName ? String.Empty : "return ") +
 			(entryPoint.DeclaringType?.FullName is { } x ? x + '.' : String.Empty) +
 			entryPoint.Name + "();";
-			;
 		await File.WriteAllTextAsync(Path.Combine(tempDir.Value.FullName, "Program.cs"), src);
 		var process = Process.Start(new ProcessStartInfo
 			{
@@ -98,8 +99,7 @@ public static class PersistedAssemblyBuilderExtensions
 		await process.WaitForExitAsync();
 		if (process.ExitCode != 0)
 			throw new InvalidOperationException($"dotnet publish failed with exit code {process.ExitCode}.");
-		// Rename the published executable to match the assembly name
-		var publishedExe = Path.Combine(absoluteDirectory, projectName);
+		var publishedExe = Path.Combine(publishDir, projectName);
 		var targetExe = Path.Combine(absoluteDirectory, name);
 		if (OperatingSystem.IsWindows()) { publishedExe += ".exe"; targetExe += ".exe"; }
 		if (File.Exists(targetExe)) File.Delete(targetExe);

@@ -170,6 +170,9 @@ public class PersistenceTests : IDisposable
 
 		Assert.True(File.Exists(exePath), $"Executable not found at {exePath}");
 
+		var filesInDir = Directory.GetFiles(tempDir);
+		Assert.Single(filesInDir);
+
 		var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
 		{
 			FileName = exePath,
