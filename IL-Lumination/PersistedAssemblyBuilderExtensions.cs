@@ -89,14 +89,15 @@ public static class PersistedAssemblyBuilderExtensions
 			entryPoint.Name + "();";
 			;
 		await File.WriteAllTextAsync(Path.Combine(tempDir.Value.FullName, "Program.cs"), src);
-		await Process
-			.Start(new ProcessStartInfo
+		var process = Process.Start(new ProcessStartInfo
 			{
 				WorkingDirectory = tempDir.Value.FullName,
 				FileName = "dotnet",
 				Arguments = $"publish ./{projectName}.csproj -c Release"
-			})!
-			.WaitForExitAsync();
+			}) ?? throw new InvalidOperationException("Failed to start dotnet publish process.");
+		await process.WaitForExitAsync();
+		if (process.ExitCode != 0)
+			throw new InvalidOperationException($"dotnet publish failed with exit code {process.ExitCode}.");
 		// Rename the published executable to match the assembly name
 		var publishedExe = Path.Combine(absoluteDirectory, projectName);
 		var targetExe = Path.Combine(absoluteDirectory, name);
