@@ -44,7 +44,7 @@ public static class PersistedAssemblyBuilderExtensions
 			Access = FileAccess.Write,
 			Mode = FileMode.Create
 		});
-		await fileStream.WriteAsync(ms.GetBuffer());
+		await fileStream.WriteAsync(ms.GetBuffer().AsMemory(0, (Int32)ms.Length));
 	}
 
 	public static async Task SaveToExecutable(
