@@ -278,7 +278,7 @@ public sealed class FieldBuilder : IBuilder<System.Reflection.Emit.FieldBuilder>
 	public FieldBuilder Private() { this.visibility = FieldAttributes.Private; return this; }
 	public FieldBuilder Family() { this.visibility = FieldAttributes.Family; return this; }
 	public FieldBuilder FamilyAndAssembly() { this.visibility = FieldAttributes.FamANDAssem; return this; }
-	public FieldBuilder FamilyOrAssembly() { this.visibility = FieldAttributes.FamANDAssem; return this; }
+	public FieldBuilder FamilyOrAssembly() { this.visibility = FieldAttributes.FamORAssem; return this; }
 	public FieldBuilder Assembly() { this.visibility = FieldAttributes.Assembly; return this; }
 	public FieldBuilder Public() { this.visibility = FieldAttributes.Public; return this; }
 
