@@ -89,7 +89,7 @@ public static class AssemblyBuilderExtensions
 		Sre.TypeBuilder DefineAllType(TypeBuilder typeBuilder, Definer definer)
 		{
 			if (String.IsNullOrEmpty(typeBuilder.name))
-				throw new InvalidOperationException("TypeBuilder requires a name to be configured before building.");
+				throw new InvalidOperationException($"{nameof(TypeBuilder)} requires a name to be configured before building.");
 
 			var typeAttributes = typeBuilder.visibility | typeBuilder.classOrNot | typeBuilder.abstractOrSealed;
 			var tb = definer.DefineType(typeBuilder.name, typeAttributes);
