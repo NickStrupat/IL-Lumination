@@ -22,7 +22,8 @@ public static class BuilderExtensions
 		var locals = methodBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
 		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
 		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup, LocalLookup);
-		methodBuilder.bodyActions.ForEach(a => a.Invoke(body));
+		foreach (var bodyAction in methodBuilder.bodyActions)
+			bodyAction(body);
 
 		return mb;
 	}
