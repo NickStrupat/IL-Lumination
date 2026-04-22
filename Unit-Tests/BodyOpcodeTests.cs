@@ -362,19 +362,21 @@ public class BodyOpcodeTests
 	// --- Try/Catch/Finally helpers ---
 
 	[Fact]
-	public void TryCatch_Generic_CatchesException()
+	public void TryCatch_CatchesException()
 	{
 		var dm = new DynamicFunc<Int32>();
 		dm.GetILGenerator().Body()
 			.DeclareLocal<Int32>(out var result)
-			.TryCatch<Body, InvalidOperationException>(
-				tryBody: b => b
+			.Try(
+				b => b
 					.Newobj(typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!)
 					.Throw(),
-				catchBody: b => b
-					.Pop()
-					.Ldc_I4(99)
-					.Stloc(result)
+				t => t
+					.Catch<InvalidOperationException>(b => b
+						.Pop()
+						.Ldc_I4(99)
+						.Stloc(result)
+					)
 			)
 			.Ldloc(result)
 			.Ret();
@@ -382,18 +384,100 @@ public class BodyOpcodeTests
 	}
 
 	[Fact]
-	public void Try_WithFinally_ExecutesFinallyBlock()
+	public void TryFinally_ExecutesFinallyBlock()
 	{
 		var dm = new DynamicFunc<Int32>();
 		dm.GetILGenerator().Body()
 			.DeclareLocal<Int32>(out var result)
 			.Try(
-				tryBody: b => b
+				b => b
 					.Ldc_I4(10)
 					.Stloc(result),
-				finallyBody: b => b
-					.Ldc_I4(42)
-					.Stloc(result)
+				t => t
+					.Finally(b => b
+						.Ldc_I4(42)
+						.Stloc(result)
+					)
+			)
+			.Ldloc(result)
+			.Ret();
+		Assert.Equal(42, dm.CreateDelegate()());
+	}
+
+	[Theory]
+	[InlineData(1, true)]
+	[InlineData(2, false)]
+	public void TryCatch_MultipleCatchBlocks(Int32 expected, Boolean throwInvalidOp)
+	{
+		var dm = new DynamicFunc<Boolean, Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<Int32>(out var result)
+			.Try(
+				b => b
+					.DefineLabel(out var throwArg)
+					.Ldarg_0()
+					.Brfalse(throwArg)
+					.Newobj(typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!)
+					.Throw()
+					.MarkLabel(throwArg)
+					.Newobj(typeof(ArgumentException).GetConstructor(Type.EmptyTypes)!)
+					.Throw(),
+				t => t
+					.Catch<InvalidOperationException>(b => b.Pop().Ldc_I4_1().Stloc(result))
+					.Catch<ArgumentException>(b => b.Pop().Ldc_I4_2().Stloc(result))
+			)
+			.Ldloc(result)
+			.Ret();
+		Assert.Equal(expected, dm.CreateDelegate()(throwInvalidOp));
+	}
+
+	[Theory]
+	[InlineData(1, true)]
+	[InlineData(2, false)]
+	public void Try_Catch_MultipleCatchBlocks(Int32 expected, Boolean throwInvalidOp)
+	{
+		var dm = new DynamicFunc<Boolean, Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<Int32>(out var result)
+			.Try(
+				b => b
+					.DefineLabel(out var throwArg)
+					.Ldarg_0()
+					.Brfalse(throwArg)
+					.Newobj(typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!)
+					.Throw()
+					.MarkLabel(throwArg)
+					.Newobj(typeof(ArgumentException).GetConstructor(Type.EmptyTypes)!)
+					.Throw(),
+				t => t
+					.Catch<InvalidOperationException>(b => b.Pop().Ldc_I4_1().Stloc(result))
+					.Catch<ArgumentException>(b => b.Pop().Ldc_I4_2().Stloc(result))
+			)
+			.Ldloc(result)
+			.Ret();
+		Assert.Equal(expected, dm.CreateDelegate()(throwInvalidOp));
+	}
+
+	[Fact]
+	public void Try_Catch_Finally()
+	{
+		var dm = new DynamicFunc<Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<Int32>(out var result)
+			.Try(
+				b => b
+					.Newobj(typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!)
+					.Throw(),
+				t => t
+					.Catch<InvalidOperationException>(b => b
+						.Pop()
+						.Ldc_I4(10)
+						.Stloc(result)
+					)
+					.Finally(b => b
+						.Ldc_I4(42)
+						.Stloc(result)
+					)
 			)
 			.Ldloc(result)
 			.Ret();

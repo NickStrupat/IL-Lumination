@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
+using Illumination.Builders;
+using LocalBuilder = System.Reflection.Emit.LocalBuilder;
 
 namespace Illumination;
 
@@ -11,34 +13,15 @@ public static class BodyExtensions
 	public static Body Body(this ILGenerator il) => new(il);
 	public static Body Body(this DynamicMethod dm) => dm.GetILGenerator().Body();
 	public static Body Body<TDel>(this DynamicMethod<TDel> dm) where TDel : Delegate => dm.GetILGenerator().Body();
-	
-	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TBody> finallyBody) where TBody : BodyBase<TBody>
+
+	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TryBuilder<TBody>> configure) where TBody : BodyBase<TBody>
 	{
 		body.BeginExceptionBlock();
 		tryBody(body);
-		body.BeginFinallyBlock();
-		finallyBody(body);
+		configure(new TryBuilder<TBody>(body));
 		body.EndExceptionBlock();
 		return body;
 	}
-
-	public static TBody TryCatch<TBody>(this TBody body, Action<TBody> tryBody, Type exceptionType, Action<TBody> catchBody, Action<TBody>? finallyBody = null) where TBody : BodyBase<TBody>
-	{
-		body.BeginExceptionBlock();
-		tryBody(body);
-		body.BeginCatchBlock(exceptionType);
-		catchBody(body);
-		if (finallyBody != null)
-		{
-			body.BeginFinallyBlock();
-			finallyBody(body);
-		}
-		body.EndExceptionBlock();
-		return body;
-	}
-
-	public static TBody TryCatch<TBody, TException>(this TBody body, Action<TBody> tryBody, Action<TBody> catchBody, Action<TBody>? finallyBody = null) where TBody : BodyBase<TBody> where TException : Exception
-		=> body.TryCatch(tryBody, typeof(TException), catchBody, finallyBody);
 }
 
 public static class BodyAddExtensions
@@ -46,7 +29,7 @@ public static class BodyAddExtensions
 	public static Body Add(this Body body, Int32 value1, Int32 value2) => body.Ldc_I4(value1).Ldc_I4(value2).Add();
 	public static Body Add_Ovf(this Body body, Int32 value1, Int32 value2) => body.Ldc_I4(value1).Ldc_I4(value2).Add_Ovf();
 	public static Body Add_Ovf_Un(this Body body, Int32 value1, Int32 value2) => body.Ldc_I4(value1).Ldc_I4(value2).Add_Ovf_Un();
-	
+
 	public static Body Add(this Body body, Int64 value1, Int64 value2) => body.Ldc_I8(value1).Ldc_I8(value2).Add();
 	public static Body Add_Ovf(this Body body, Int64 value1, Int64 value2) => body.Ldc_I8(value1).Ldc_I8(value2).Add_Ovf();
 	public static Body Add_Ovf_Un(this Body body, Int64 value1, Int64 value2) => body.Ldc_I8(value1).Ldc_I8(value2).Add_Ovf_Un();
@@ -66,7 +49,7 @@ public static class BodyRetExtensions
 	public static Body Ret(this Body body, Single value) => body.Ldc_R4(value).Ret();
 	public static Body Ret(this Body body, Double value) => body.Ldc_R8(value).Ret();
 	public static Body Ret(this Body body, String value) => body.Ldstr(value).Ret();
-	
+
 	// public static Body Ret<T>(this Body body, T value)
 	// {
 	// 	if (typeof(T) == typeof(Boolean))
@@ -113,323 +96,323 @@ public abstract class BodyBase<TBody> where TBody : BodyBase<TBody>
 
 	/// <inheritdoc cref="OpCodes.Add"/>
 	public TBody Add() => Emit(OpCodes.Add);
-	
+
 	/// <inheritdoc cref="OpCodes.Add_Ovf"/>
 	public TBody Add_Ovf() => Emit(OpCodes.Add_Ovf);
-	
+
 	/// <inheritdoc cref="OpCodes.Add_Ovf_Un"/>
 	public TBody Add_Ovf_Un() => Emit(OpCodes.Add_Ovf_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.And"/>
 	public TBody And() => Emit(OpCodes.And);
-	
+
 	/// <inheritdoc cref="OpCodes.Arglist"/>
 	public TBody Arglist() => Emit(OpCodes.Arglist);
-	
+
 	/// <inheritdoc cref="OpCodes.Beq"/>
 	public TBody Beq(Label label) => Emit(OpCodes.Beq, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Beq_S"/>
 	public TBody Beq_S(Label label) => Emit(OpCodes.Beq_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bge"/>
 	public TBody Bge(Label label) => Emit(OpCodes.Bge, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bge_S"/>
 	public TBody Bge_S(Label label) => Emit(OpCodes.Bge_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bge_Un"/>
 	public TBody Bge_Un(Label label) => Emit(OpCodes.Bge_Un, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bge_Un_S"/>
 	public TBody Bge_Un_S(Label label) => Emit(OpCodes.Bge_Un_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bgt"/>
 	public TBody Bgt(Label label) => Emit(OpCodes.Bgt, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bgt_S"/>
 	public TBody Bgt_S(Label label) => Emit(OpCodes.Bgt_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bgt_Un"/>
 	public TBody Bgt_Un(Label label) => Emit(OpCodes.Bgt_Un, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bgt_Un_S"/>
 	public TBody Bgt_Un_S(Label label) => Emit(OpCodes.Bgt_Un_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Ble"/>
 	public TBody Ble(Label label) => Emit(OpCodes.Ble, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Ble_S"/>
 	public TBody Ble_S(Label label) => Emit(OpCodes.Ble_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Ble_Un"/>
 	public TBody Ble_Un(Label label) => Emit(OpCodes.Ble_Un, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Ble_Un_S"/>
 	public TBody Ble_Un_S(Label label) => Emit(OpCodes.Ble_Un_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Blt"/>
 	public TBody Blt(Label label) => Emit(OpCodes.Blt, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Blt_S"/>
 	public TBody Blt_S(Label label) => Emit(OpCodes.Blt_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Blt_Un"/>
 	public TBody Blt_Un(Label label) => Emit(OpCodes.Blt_Un, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Blt_Un_S"/>
 	public TBody Blt_Un_S(Label label) => Emit(OpCodes.Blt_Un_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bne_Un"/>
 	/// <param name="label">The label to branch to if the two values are not equal.</param>
 	public TBody Bne_Un(Label label) => Emit(OpCodes.Bne_Un, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Bne_Un_S"/>
 	/// <param name="label">The label to branch to if the two values are not equal.</param>
 	public TBody Bne_Un_S(Label label) => Emit(OpCodes.Bne_Un_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Box"/>
 	public TBody Box(Type type) => Emit(OpCodes.Box, type);
-	
+
 	/// <inheritdoc cref="OpCodes.Box"/>
 	public TBody Box<T>() where T : struct => Box(typeof(T));
-	
+
 	/// <inheritdoc cref="OpCodes.Br"/>
 	public TBody Br(Label label) => Emit(OpCodes.Br, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Br_S"/>
 	public TBody Br_S(Label label) => Emit(OpCodes.Br_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Break"/>
 	public TBody Break() => Emit(OpCodes.Break);
-	
+
 	/// <inheritdoc cref="OpCodes.Brfalse"/>
 	public TBody Brfalse(Label label) => Emit(OpCodes.Brfalse, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Brfalse_S"/>
 	public TBody Brfalse_S(Label label) => Emit(OpCodes.Brfalse_S, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Brtrue"/>
 	public TBody Brtrue(Label label) => Emit(OpCodes.Brtrue, label);
-	
+
 	/// <inheritdoc cref="OpCodes.Brtrue_S"/>
 	public TBody Brtrue_S(Label label) => Emit(OpCodes.Brtrue_S, label);
-	
+
 	/// <summary><inheritdoc cref="OpCodes.Call"/></summary>
 	/// <inheritdoc cref="ILGenerator.Emit(OpCode, MethodInfo)" path="/param[@name='meth']"/>
 	/// <exception><inheritdoc cref="ILGenerator.Emit(OpCode, MethodInfo)"/></exception>
 	public TBody Call(MethodInfo meth) => Emit(OpCodes.Call, meth);
-	
+
 	/// <inheritdoc cref="ILGenerator.EmitCall"/>
 	public TBody Call(MethodInfo method, Type[]? optionalParameterTypes) { il.EmitCall(OpCodes.Call, method, optionalParameterTypes); return This; }
-	
+
 	/// <inheritdoc cref="OpCodes.Call"/>
 	public TBody Call(ConstructorInfo constructor) => Emit(OpCodes.Call, constructor);
-	
+
 	/// <inheritdoc cref="OpCodes.Calli"/>
 	public TBody Calli(CallingConvention callingConvention, Type returnType, Type[] parameterTypes) { il.EmitCalli(OpCodes.Calli, callingConvention, returnType, parameterTypes); return This; }
-	
+
 	/// <inheritdoc cref="OpCodes.Calli"/>
 	public TBody Calli(CallingConventions callingConvention, Type returnType, Type[] parameterTypes, Type[] optionalParameterTypes) { il.EmitCalli(OpCodes.Calli, callingConvention, returnType, parameterTypes, optionalParameterTypes); return This; }
-	
+
 	/// <inheritdoc cref="OpCodes.Callvirt"/>
 	public TBody Callvirt(MethodInfo method) => Emit(OpCodes.Callvirt, method);
-	
+
 	/// <inheritdoc cref="OpCodes.Castclass"/>
 	public TBody Castclass(Type type) => Emit(OpCodes.Castclass, type);
-	
+
 	/// <inheritdoc cref="OpCodes.Castclass"/>
 	public TBody Castclass<T>() => Castclass(typeof(T));
-	
+
 	/// <inheritdoc cref="OpCodes.Ceq"/>
 	public TBody Ceq() => Emit(OpCodes.Ceq);
-	
+
 	/// <inheritdoc cref="OpCodes.Cgt"/>
 	public TBody Cgt() => Emit(OpCodes.Cgt);
-	
+
 	/// <inheritdoc cref="OpCodes.Cgt_Un"/>
 	public TBody Cgt_Un() => Emit(OpCodes.Cgt_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Ckfinite"/>
 	public TBody Ckfinite() => Emit(OpCodes.Ckfinite);
-	
+
 	/// <inheritdoc cref="OpCodes.Clt"/>
 	public TBody Clt() => Emit(OpCodes.Clt);
-	
+
 	/// <inheritdoc cref="OpCodes.Clt_Un"/>
 	public TBody Clt_Un() => Emit(OpCodes.Clt_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Constrained"/>
 	public TBody Constrained(Type type) => Emit(OpCodes.Constrained, type);
-	
+
 	/// <inheritdoc cref="OpCodes.Constrained"/>
 	public TBody Constrained<T>() => Constrained(typeof(T));
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_I"/>
 	public TBody Conv_I() => Emit(OpCodes.Conv_I);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_I1"/>
 	public TBody Conv_I1() => Emit(OpCodes.Conv_I1);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_I2"/>
 	public TBody Conv_I2() => Emit(OpCodes.Conv_I2);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_I4"/>
 	public TBody Conv_I4() => Emit(OpCodes.Conv_I4);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_I8"/>
 	public TBody Conv_I8() => Emit(OpCodes.Conv_I8);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I"/>
 	public TBody Conv_Ovf_I() => Emit(OpCodes.Conv_Ovf_I);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I_Un"/>
 	public TBody Conv_Ovf_I_Un() => Emit(OpCodes.Conv_Ovf_I_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I1"/>
 	public TBody Conv_Ovf_I1() => Emit(OpCodes.Conv_Ovf_I1);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I1_Un"/>
 	public TBody Conv_Ovf_I1_Un() => Emit(OpCodes.Conv_Ovf_I1_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I2"/>
 	public TBody Conv_Ovf_I2() => Emit(OpCodes.Conv_Ovf_I2);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I2_Un"/>
 	public TBody Conv_Ovf_I2_Un() => Emit(OpCodes.Conv_Ovf_I2_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I4"/>
 	public TBody Conv_Ovf_I4() => Emit(OpCodes.Conv_Ovf_I4);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I4_Un"/>
 	public TBody Conv_Ovf_I4_Un() => Emit(OpCodes.Conv_Ovf_I4_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I8"/>
 	public TBody Conv_Ovf_I8() => Emit(OpCodes.Conv_Ovf_I8);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_I8_Un"/>
 	public TBody Conv_Ovf_I8_Un() => Emit(OpCodes.Conv_Ovf_I8_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U"/>
 	public TBody Conv_Ovf_U() => Emit(OpCodes.Conv_Ovf_U);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U_Un"/>
 	public TBody Conv_Ovf_U_Un() => Emit(OpCodes.Conv_Ovf_U_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U1"/>
 	public TBody Conv_Ovf_U1() => Emit(OpCodes.Conv_Ovf_U1);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U1_Un"/>
 	public TBody Conv_Ovf_U1_Un() => Emit(OpCodes.Conv_Ovf_U1_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U2"/>
 	public TBody Conv_Ovf_U2() => Emit(OpCodes.Conv_Ovf_U2);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U2_Un"/>
 	public TBody Conv_Ovf_U2_Un() => Emit(OpCodes.Conv_Ovf_U2_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U4"/>
 	public TBody Conv_Ovf_U4() => Emit(OpCodes.Conv_Ovf_U4);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U4_Un"/>
 	public TBody Conv_Ovf_U4_Un() => Emit(OpCodes.Conv_Ovf_U4_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U8"/>
 	public TBody Conv_Ovf_U8() => Emit(OpCodes.Conv_Ovf_U8);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_Ovf_U8_Un"/>
 	public TBody Conv_Ovf_U8_Un() => Emit(OpCodes.Conv_Ovf_U8_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_R_Un"/>
 	public TBody Conv_R_Un() => Emit(OpCodes.Conv_R_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_R4"/>
 	public TBody Conv_R4() => Emit(OpCodes.Conv_R4);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_R8"/>
 	public TBody Conv_R8() => Emit(OpCodes.Conv_R8);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_U"/>
 	public TBody Conv_U() => Emit(OpCodes.Conv_U);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_U1"/>
 	public TBody Conv_U1() => Emit(OpCodes.Conv_U1);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_U2"/>
 	public TBody Conv_U2() => Emit(OpCodes.Conv_U2);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_U4"/>
 	public TBody Conv_U4() => Emit(OpCodes.Conv_U4);
-	
+
 	/// <inheritdoc cref="OpCodes.Conv_U8"/>
 	public TBody Conv_U8() => Emit(OpCodes.Conv_U8);
-	
+
 	/// <inheritdoc cref="OpCodes.Cpblk"/>
 	public TBody Cpblk() => Emit(OpCodes.Cpblk);
-	
+
 	/// <inheritdoc cref="OpCodes.Cpobj"/>
 	public TBody Cpobj(Type type) => Emit(OpCodes.Cpobj, type);
-	
+
 	/// <inheritdoc cref="OpCodes.Cpobj"/>
 	public TBody Cpobj<T>() => Cpobj(typeof(T));
-	
+
 	/// <inheritdoc cref="OpCodes.Div"/>
 	public TBody Div() => Emit(OpCodes.Div);
-	
+
 	/// <inheritdoc cref="OpCodes.Div_Un"/>
 	public TBody Div_Un() => Emit(OpCodes.Div_Un);
-	
+
 	/// <inheritdoc cref="OpCodes.Dup"/>
 	public TBody Dup() => Emit(OpCodes.Dup);
-	
+
 	/// <inheritdoc cref="OpCodes.Endfilter"/>
 	public TBody Endfilter() => Emit(OpCodes.Endfilter);
-	
+
 	/// <inheritdoc cref="OpCodes.Endfinally"/>
 	public TBody Endfinally() => Emit(OpCodes.Endfinally);
-	
+
 	/// <inheritdoc cref="OpCodes.Initblk"/>
 	public TBody Initblk() => Emit(OpCodes.Initblk);
-	
+
 	/// <inheritdoc cref="OpCodes.Initobj"/>
 	public TBody Initobj(Type type) => Emit(OpCodes.Initobj, type);
-	
+
 	/// <inheritdoc cref="OpCodes.Initobj"/>
 	public TBody Initobj<T>() => Initobj(typeof(T));
-	
+
 	/// <inheritdoc cref="OpCodes.Isinst"/>
 	public TBody Isinst(Type type) => Emit(OpCodes.Isinst, type);
-	
+
 	/// <inheritdoc cref="OpCodes.Isinst"/>
 	public TBody Isinst<T>() => Isinst(typeof(T));
-	
+
 	/// <inheritdoc cref="OpCodes.Jmp"/>
 	public TBody Jmp(MethodInfo method) => Emit(OpCodes.Jmp, method);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarg_0"/>
 	public TBody Ldarg_0() => Emit(OpCodes.Ldarg_0);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarg_1"/>
 	public TBody Ldarg_1() => Emit(OpCodes.Ldarg_1);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarg_2"/>
 	public TBody Ldarg_2() => Emit(OpCodes.Ldarg_2);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarg_3"/>
 	public TBody Ldarg_3() => Emit(OpCodes.Ldarg_3);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarg"/>
 	public TBody Ldarg(Int16 index) => Emit(OpCodes.Ldarg, index);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarg_S"/>
 	public TBody Ldarg_S(Byte index) => Emit(OpCodes.Ldarg_S, index);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarga"/>
 	public TBody Ldarga(Int32 index) => Emit(OpCodes.Ldarga, index);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldarga_S"/>
 	public TBody Ldarga_S(Byte index) => Emit(OpCodes.Ldarga_S, index);
-	
+
 	/// <inheritdoc cref="OpCodes.Ldc_I4"/>
 	public TBody Ldc_I4(Int32 value) => Emit(OpCodes.Ldc_I4, value);
 
@@ -864,31 +847,31 @@ public abstract class BodyBase<TBody> where TBody : BodyBase<TBody>
 
 	/// <inheritdoc cref="ILGenerator.DeclareLocal(System.Type)"/>
 	public TBody DeclareLocal(Type type, out LocalBuilder local) { local = il.DeclareLocal(type); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.DeclareLocal(System.Type)"/>
 	public TBody DeclareLocal<T>(out LocalBuilder local) => DeclareLocal(typeof(T), out local);
-	
+
 	/// <inheritdoc cref="ILGenerator.DefineLabel"/>
 	public TBody DefineLabel(out Label label) { label = il.DefineLabel(); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.MarkLabel(Label)"/>
 	public TBody MarkLabel(Label label) { il.MarkLabel(label); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.BeginExceptionBlock"/>
 	public TBody BeginExceptionBlock() { il.BeginExceptionBlock(); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.BeginExceptFilterBlock"/>
 	public TBody BeginExceptFilterBlock() { il.BeginExceptFilterBlock(); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.BeginCatchBlock"/>
 	public TBody BeginCatchBlock() { il.BeginCatchBlock(null); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.BeginCatchBlock(System.Type)"/>
 	public TBody BeginCatchBlock(Type exceptionType) { il.BeginCatchBlock(exceptionType); return This; }
-	
+
 	/// <inheritdoc cref="ILGenerator.BeginCatchBlock(System.Type)"/>
 	public TBody BeginCatchBlock<TException>() where TException : Exception => BeginCatchBlock(typeof(TException));
-	
+
 	/// <inheritdoc cref="ILGenerator.EndExceptionBlock"/>
 	public TBody EndExceptionBlock() { il.EndExceptionBlock(); return This; }
 
