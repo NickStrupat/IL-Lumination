@@ -9,12 +9,32 @@ public sealed class TryBuilder<TBody> where TBody : BodyBase<TBody>
 
 	internal TryBuilder(TBody body) => this.body = body;
 
+	public TryBuilder<TBody> Catch(Action<TBody> catchBody)
+		=> Catch(typeof(Object), catchBody);
+
 	public TryBuilder<TBody> Catch<TException>(Action<TBody> catchBody) where TException : Exception
 		=> Catch(typeof(TException), catchBody);
 
 	public TryBuilder<TBody> Catch(Type exceptionType, Action<TBody> catchBody)
 	{
 		body.BeginCatchBlock(exceptionType);
+		catchBody(body);
+		return this;
+	}
+
+	/// <param name="when">
+	/// Filter expression. Receives the body and a local containing the exception.
+	/// Must leave an int32 on the stack (1 = handle, 0 = skip).
+	/// </param>
+	public TryBuilder<TBody> CatchWhen(Action<TBody, SreLocalBuilder> when, Action<TBody> catchBody)
+	{
+		body.DeclareLocal<Object>(out var exLocal);
+		body.BeginExceptFilterBlock();
+		body.Dup();
+		body.Stloc(exLocal);
+		body.Pop();
+		when(body, exLocal);
+		body.BeginCatchBlock();
 		catchBody(body);
 		return this;
 	}

@@ -675,4 +675,41 @@ public class BuilderTests
 		var result = method.Invoke(null, [message]);
 		Assert.Equal(expected, result);
 	}
+
+	[Fact]
+	public void CatchAll_CatchesAnyException()
+	{
+		var ab = new Illumination.Builders.AssemblyBuilder()
+			.Name("TestAssembly")
+			.NewType(out var type, t => t
+				.Name("CatchAllTest")
+				.Public()
+				.NewMethod(m => m
+					.Public()
+					.Static()
+					.Name("Run")
+					.ReturnType<Int32>()
+					.NewLocal<Int32>(out var result)
+					.Body(b => b
+						.Try(
+							tb => tb
+								.Newobj(typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!)
+								.Throw(),
+							t => t
+								.Catch(cb => cb
+									.Pop()
+									.Ldc_I4(42)
+									.Stloc(result)
+								)
+						)
+						.Ldloc(result)
+						.Ret()
+					)
+				)
+			);
+
+		var assembly = ab.Create();
+		var result = assembly.GetType("CatchAllTest")!.GetMethod("Run")!.Invoke(null, null);
+		Assert.Equal(42, result);
+	}
 }
