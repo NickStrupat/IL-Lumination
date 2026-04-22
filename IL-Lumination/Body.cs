@@ -14,6 +14,12 @@ public static class BodyExtensions
 	public static Body Body(this DynamicMethod dm) => dm.GetILGenerator().Body();
 	public static Body Body<TDel>(this DynamicMethod<TDel> dm) where TDel : Delegate => dm.GetILGenerator().Body();
 
+	public static TBody Apply<TBody>(this TBody body, Action<TBody> action) where TBody : BodyBase<TBody>
+	{
+		action(body);
+		return body;
+	}
+
 	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TryBuilder<TBody>> configure) where TBody : BodyBase<TBody>
 	{
 		body.BeginExceptionBlock();

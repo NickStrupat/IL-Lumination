@@ -17,8 +17,7 @@ public sealed class TryBuilder<TBody> where TBody : BodyBase<TBody>
 
 	public TryBuilder<TBody> Catch(Type exceptionType, Action<TBody> catchBody)
 	{
-		body.BeginCatchBlock(exceptionType);
-		catchBody(body);
+		body.BeginCatchBlock(exceptionType).Apply(catchBody);
 		return this;
 	}
 
@@ -28,12 +27,12 @@ public sealed class TryBuilder<TBody> where TBody : BodyBase<TBody>
 	/// </param>
 	public TryBuilder<TBody> CatchWhen(Action<TBody, SreLocalBuilder> when, Action<TBody> catchBody)
 	{
-		body.DeclareLocal<Object>(out var exLocal);
-		body.BeginExceptFilterBlock();
-		body.Stloc(exLocal);
-		when(body, exLocal);
-		body.BeginCatchBlock();
-		catchBody(body);
+		body.DeclareLocal<Object>(out var exLocal)
+			.BeginExceptFilterBlock()
+			.Stloc(exLocal)
+			.Apply(b => when(b, exLocal))
+			.BeginCatchBlock()
+			.Apply(catchBody);
 		return this;
 	}
 
@@ -43,27 +42,27 @@ public sealed class TryBuilder<TBody> where TBody : BodyBase<TBody>
 	/// </param>
 	public TryBuilder<TBody> CatchWhen<TException>(Action<TBody, SreLocalBuilder> when, Action<TBody> catchBody) where TException : Exception
 	{
-		body.DeclareLocal<TException>(out var exLocal);
-		body.BeginExceptFilterBlock();
-		body.Isinst<TException>();
-		body.Dup();
-		body.Stloc(exLocal);
-		body.DefineLabel(out var match);
-		body.DefineLabel(out var endFilter);
-		body.Brtrue(match);
-		body.Ldc_I4_0();
-		body.Br(endFilter);
-		body.MarkLabel(match);
-		when(body, exLocal);
-		body.MarkLabel(endFilter);
-		body.BeginCatchBlock();
-		catchBody(body);
+		body.DeclareLocal<TException>(out var exLocal)
+			.BeginExceptFilterBlock()
+			.Isinst<TException>()
+			.Dup()
+			.Stloc(exLocal)
+			.DefineLabel(out var match)
+			.DefineLabel(out var endFilter)
+			.Brtrue(match)
+			.Ldc_I4_0()
+			.Br(endFilter)
+			.MarkLabel(match)
+			.Apply(b => when(b, exLocal))
+			.MarkLabel(endFilter)
+			.BeginCatchBlock()
+			.Apply(catchBody);
 		return this;
 	}
 
 	public void Finally(Action<TBody> finallyBody)
 	{
-		body.BeginFinallyBlock();
-		finallyBody(body);
+		body.BeginFinallyBlock()
+			.Apply(finallyBody);
 	}
 }
