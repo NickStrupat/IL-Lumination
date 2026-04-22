@@ -30,9 +30,7 @@ public sealed class TryBuilder<TBody> where TBody : BodyBase<TBody>
 	{
 		body.DeclareLocal<Object>(out var exLocal);
 		body.BeginExceptFilterBlock();
-		body.Dup();
 		body.Stloc(exLocal);
-		body.Pop();
 		when(body, exLocal);
 		body.BeginCatchBlock();
 		catchBody(body);
