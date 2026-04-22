@@ -484,6 +484,8 @@ public class BodyOpcodeTests
 		Assert.Equal(42, dm.CreateDelegate()());
 	}
 
+	// Exception filters are not supported by DynamicMethod — see BuilderTests for filter tests.
+
 	// --- Box / Unbox ---
 
 	[Fact]

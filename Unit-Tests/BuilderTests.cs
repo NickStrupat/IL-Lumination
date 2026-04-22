@@ -618,4 +618,61 @@ public class BuilderTests
 		Assert.True(typeof(Exception).IsAssignableFrom(clrType));
 		Assert.True(typeof(IDisposable).IsAssignableFrom(clrType));
 	}
+
+	[Theory]
+	[InlineData(1, "match")]
+	[InlineData(0, "no match")]
+	public void ExceptionFilter_When_FiltersByCondition(Int32 expected, String message)
+	{
+		var getMessage = typeof(Exception).GetProperty("Message")!.GetMethod!;
+		var stringEquals = typeof(String).GetMethod("op_Equality", [typeof(String), typeof(String)])!;
+		var msgCtor = typeof(InvalidOperationException).GetConstructor([typeof(String)])!;
+
+		var ab = new Illumination.Builders.AssemblyBuilder()
+			.Name("TestAssembly")
+			.NewType(out var type, t => t
+				.Name("FilterTest")
+				.Public()
+				.NewMethod(m => m
+					.Public()
+					.Static()
+					.Name("Run")
+					.ReturnType<Int32>()
+					.NewParameter<String>(out var msg)
+					.NewLocal<Int32>(out var result)
+					.Body(b => b
+						.Try(
+							tb => tb
+								.Ldarg(msg)
+								.Newobj(msgCtor)
+								.Throw(),
+							t => t
+								.CatchWhen<InvalidOperationException>(
+									(wb, ex) => wb
+										.Ldloc(ex)
+										.Callvirt(getMessage)
+										.Ldstr("match")
+										.Call(stringEquals),
+									cb => cb
+										.Pop()
+										.Ldc_I4_1()
+										.Stloc(result)
+								)
+								.Catch<Exception>(cb => cb
+									.Pop()
+									.Ldc_I4_0()
+									.Stloc(result)
+								)
+						)
+						.Ldloc(result)
+						.Ret()
+					)
+				)
+			);
+
+		var assembly = ab.Create();
+		var method = assembly.GetType("FilterTest")!.GetMethod("Run")!;
+		var result = method.Invoke(null, [message]);
+		Assert.Equal(expected, result);
+	}
 }
