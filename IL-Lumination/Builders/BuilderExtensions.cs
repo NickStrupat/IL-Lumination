@@ -14,14 +14,9 @@ public static class BuilderExtensions
 		var mb = buildContext.GetBuilder(methodBuilder);
 
 		var ilGenerator = mb.GetILGenerator();
-		foreach (var local in methodBuilder.locals)
-			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
-
 		var dictionary = methodBuilder.parameters.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
 		Int16? ParameterLookup(String s) => dictionary.TryGetValue(s, out var index) ? index : null;
-		var locals = methodBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
-		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
-		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup, LocalLookup);
+		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup);
 		foreach (var bodyAction in methodBuilder.bodyActions)
 			bodyAction(body);
 
@@ -62,14 +57,9 @@ public static class BuilderExtensions
 	{
 		var cb = buildContext.GetBuilder(constructorBuilder);
 		var ilGenerator = cb.GetILGenerator();
-		foreach (var local in constructorBuilder.locals)
-			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
-
 		var dictionary = constructorBuilder.parameters.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
 		Int16? ParameterLookup(String s) => dictionary.TryGetValue(s, out var index) ? index : null;
-		var locals = constructorBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
-		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
-		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup, LocalLookup);
+		var body = new BodyBuilder(ilGenerator, buildContext, ParameterLookup);
 		constructorBuilder.bodyActions.ForEach(a => a.Invoke(body));
 	}
 
@@ -85,12 +75,7 @@ public static class BuilderExtensions
 	{
 		var mb = buildContext.GetBuilder(accessorBuilder);
 		var ilGenerator = mb.GetILGenerator();
-		foreach (var local in accessorBuilder.locals)
-			ilGenerator.DeclareLocal(buildContext.ResolveType(local.typeRef!));
-
-		var locals = accessorBuilder.locals.Where(x => x.name is not null).ToDictionary(x => x.name!, x => x.index);
-		Int16? LocalLookup(String s) => locals.TryGetValue(s, out var index) ? index : null;
-		var body = new BodyBuilder(ilGenerator, buildContext, _ => null, LocalLookup);
+		var body = new BodyBuilder(ilGenerator, buildContext, _ => null);
 		accessorBuilder.bodyActions.ForEach(a => a.Invoke(body));
 	}
 

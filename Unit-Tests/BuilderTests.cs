@@ -639,8 +639,8 @@ public class BuilderTests
 					.Name("Run")
 					.ReturnType<Int32>()
 					.NewParameter<String>(out var msg)
-					.NewLocal<Int32>(out var result)
 					.Body(b => b
+						.DeclareLocal<Int32>(out var result)
 						.Try(
 							tb => tb
 								.Ldarg(msg)
@@ -689,8 +689,8 @@ public class BuilderTests
 					.Static()
 					.Name("Run")
 					.ReturnType<Int32>()
-					.NewLocal<Int32>(out var result)
 					.Body(b => b
+						.DeclareLocal<Int32>(out var result)
 						.Try(
 							tb => tb
 								.Newobj(typeof(InvalidOperationException).GetConstructor(Type.EmptyTypes)!)
@@ -712,4 +712,5 @@ public class BuilderTests
 		var result = assembly.GetType("CatchAllTest")!.GetMethod("Run")!.Invoke(null, null);
 		Assert.Equal(42, result);
 	}
+
 }

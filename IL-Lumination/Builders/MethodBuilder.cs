@@ -20,7 +20,6 @@ public abstract class MethodBuilder : IBuilder<System.Reflection.Emit.MethodBuil
 	internal readonly List<ParameterBuilderBase> parameters = new();
 	internal readonly List<TypeParameterBuilder> typeParameters = new();
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();
-	internal readonly List<LocalBuilderBase> locals = new();
 	internal readonly List<CustomAttributeBuilder> customAttributes = new();
 }
 
@@ -48,14 +47,6 @@ public abstract class MethodBuilder<T> : MethodBuilder where T : MethodBuilder<T
 		(T)this.AddAction(typeParameters, typeParameterBuilder = new(), typeParameterBuilderAction);
 	public T NewTypeParameter(out TypeParameterBuilder typeParameterBuilder) => NewTypeParameter(out typeParameterBuilder, _ => {});
 	public T NewTypeParameter(Action<TypeParameterBuilder> typeParameterBuilderAction) => NewTypeParameter(out _, typeParameterBuilderAction);
-	
-	public T NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public T NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
-	public T NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
-	
-	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
-	public T NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
 	
 	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
 

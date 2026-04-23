@@ -173,9 +173,9 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 				ApplyVisibility(m, config.visibility);
 				m.Name("add_" + eventName)
 					.NewParameter(p => p.Type(handlerType).Name("value"))
-					.NewLocal(out var current, l => l.Type(handlerType))
-					.NewLocal(out var previous, l => l.Type(handlerType))
 					.Body(b => b
+						.DeclareLocal(handlerType, out var current)
+						.DeclareLocal(handlerType, out var previous)
 						.Ldarg_0().Ldfld(backingField).Stloc(current)
 						.DefineLabel(out var loop).MarkLabel(loop)
 						.Ldloc(current).Stloc(previous)
@@ -194,9 +194,9 @@ public abstract class TypeBuilder<T> : TypeBuilder where T : TypeBuilder<T>
 				ApplyVisibility(m, config.visibility);
 				m.Name("remove_" + eventName)
 					.NewParameter(p => p.Type(handlerType).Name("value"))
-					.NewLocal(out var current, l => l.Type(handlerType))
-					.NewLocal(out var previous, l => l.Type(handlerType))
 					.Body(b => b
+						.DeclareLocal(handlerType, out var current)
+						.DeclareLocal(handlerType, out var previous)
 						.Ldarg_0().Ldfld(backingField).Stloc(current)
 						.DefineLabel(out var loop).MarkLabel(loop)
 						.Ldloc(current).Stloc(previous)
@@ -344,7 +344,6 @@ public abstract class AccessorBuilder<T> : IBuilder<System.Reflection.Emit.Metho
 
 	internal MethodAttributes visibility { get; private set; }
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();
-	internal readonly List<LocalBuilderBase> locals = new();
 
 	public T Private() { this.visibility = MethodAttributes.Private; return (T)this; }
 	public T Family() { this.visibility = MethodAttributes.Family; return (T)this; }
@@ -352,14 +351,6 @@ public abstract class AccessorBuilder<T> : IBuilder<System.Reflection.Emit.Metho
 	public T FamilyOrAssembly() { this.visibility = MethodAttributes.FamORAssem; return (T)this; }
 	public T Assembly() { this.visibility = MethodAttributes.Assembly; return (T)this; }
 	public T Public() { this.visibility = MethodAttributes.Public; return (T)this; }
-
-	public T NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public T NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
-	public T NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
-
-	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => (T)this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public T NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
-	public T NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
 
 	public T Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return (T)this; }
 }
@@ -399,16 +390,6 @@ public sealed class ConstructorBuilder : IBuilder<System.Reflection.Emit.Constru
 		this.AddAction(parameters.AsContravariant(), parameterBuilder = new((Int16)parameters.Count), parameterBuilderAction);
 	public ConstructorBuilder NewParameter<TParam>(out ParameterBuilder<TParam> parameterBuilder) => NewParameter(out parameterBuilder, _ => {});
 	public ConstructorBuilder NewParameter<TParam>(Action<ParameterBuilder<TParam>> parameterBuilderAction) => NewParameter(out _, parameterBuilderAction);
-
-	internal readonly List<LocalBuilderBase> locals = new();
-
-	public ConstructorBuilder NewLocal(out LocalBuilder localBuilder, Action<LocalBuilder> localBuilderAction) => this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public ConstructorBuilder NewLocal(out LocalBuilder localBuilder) => NewLocal(out localBuilder, _ => {});
-	public ConstructorBuilder NewLocal(Action<LocalBuilder> localBuilderAction) => NewLocal(out _, localBuilderAction);
-
-	public ConstructorBuilder NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder, Action<LocalBuilder<TLocal>> localBuilderAction) => this.AddAction(locals.AsContravariant(), localBuilder = new((Int16)locals.Count), localBuilderAction);
-	public ConstructorBuilder NewLocal<TLocal>(out LocalBuilder<TLocal> localBuilder) => NewLocal(out localBuilder, _ => {});
-	public ConstructorBuilder NewLocal<TLocal>(Action<LocalBuilder<TLocal>> localBuilderAction) => NewLocal(out _, localBuilderAction);
 
 	internal readonly List<Action<BodyBuilder>> bodyActions = new();
 	public ConstructorBuilder Body(Action<BodyBuilder> bodyAction) { this.bodyActions.Add(bodyAction); return this; }
