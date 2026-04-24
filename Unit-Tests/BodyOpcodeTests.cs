@@ -545,6 +545,25 @@ public class BodyOpcodeTests
 		Assert.Equal(55, dm.CreateDelegate()());
 	}
 
+	[Fact]
+	public void For_SumsOneToTen()
+	{
+		var dm = new DynamicFunc<Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<Int32>(out var i)
+			.DeclareLocal<Int32>(out var sum)
+			.Ldc_I4_0().Stloc(sum)
+			.For(
+				init: b => b.Ldc_I4_1().Stloc(i),
+				condition: b => b.Ldloc(i).Ldc_I4(11).Clt(),
+				increment: b => b.Ldloc(i).Ldc_I4_1().Add().Stloc(i),
+				forBody: b => b.Ldloc(sum).Ldloc(i).Add().Stloc(sum)
+			)
+			.Ldloc(sum)
+			.Ret();
+		Assert.Equal(55, dm.CreateDelegate()());
+	}
+
 	// --- Box / Unbox ---
 
 	[Fact]

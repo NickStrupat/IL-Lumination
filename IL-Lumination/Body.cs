@@ -46,6 +46,11 @@ public static class BodyLogicExtensions
 			)
 		);
 
+	public static TBody For<TBody>(this TBody body, Action<TBody> init, Action<TBody> condition, Action<TBody> increment, Action<TBody> forBody) where TBody : BodyBase<TBody>
+		=> body
+			.Apply(init)
+			.While(condition, b => b.Apply(forBody).Apply(increment));
+
 	public static TBody While<TBody>(this TBody body, Action<TBody> condition, Action<TBody> whileBody) where TBody : BodyBase<TBody>
 		=> body
 			.DefineLabel(out var loopStart)
