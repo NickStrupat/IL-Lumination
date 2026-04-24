@@ -53,6 +53,13 @@ public sealed class BodyBuilder : BodyBase<BodyBuilder>
 	/// <inheritdoc cref="BodyBase{TBody}.Newobj(ConstructorInfo)"/>
 	public BodyBuilder Newobj(ConstructorBuilder constructor) => base.Newobj(buildContext.GetBuilder(constructor));
 
+	/// <inheritdoc cref="BodyBase{TBody}.Ldtoken(FieldInfo)"/>
+	public BodyBuilder Ldtoken(FieldBuilder field) => base.Ldtoken(buildContext.GetBuilder(field));
+	/// <inheritdoc cref="BodyBase{TBody}.Ldtoken(MethodInfo)"/>
+	public BodyBuilder Ldtoken(MethodBuilder method) => base.Ldtoken(buildContext.GetBuilder(method));
+	/// <inheritdoc cref="BodyBase{TBody}.Ldtoken(Type)"/>
+	public BodyBuilder Ldtoken(TypeBuilder type) => base.Ldtoken(buildContext.GetBuilder(type));
+
 	private protected override BodyBuilder Emit(OpCode opcode, MethodInfo meth) => base.Emit(opcode, buildContext.GetCoreAssemblyMethod(meth));
 	private protected override BodyBuilder Emit(OpCode opcode, Type type) => base.Emit(opcode, buildContext.GetCoreAssemblyType(type));
 }
