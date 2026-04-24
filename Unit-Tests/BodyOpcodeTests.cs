@@ -486,6 +486,43 @@ public class BodyOpcodeTests
 
 	// Exception filters are not supported by DynamicMethod — see BuilderTests for filter tests.
 
+	// --- Using ---
+
+	public class TrackingDisposable : IDisposable
+	{
+		public static Boolean Disposed;
+		public void Dispose() => Disposed = true;
+	}
+
+	[Fact]
+	public void Using_CallsDispose()
+	{
+		TrackingDisposable.Disposed = false;
+		var dm = new DynamicFunc<Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<TrackingDisposable>(out var resource)
+			.Newobj(typeof(TrackingDisposable).GetConstructor(Type.EmptyTypes)!)
+			.Stloc(resource)
+			.Using(resource, b => b.Nop())
+			.Ldc_I4(42)
+			.Ret();
+		var result = dm.CreateDelegate()();
+		Assert.Equal(42, result);
+		Assert.True(TrackingDisposable.Disposed);
+	}
+
+	[Fact]
+	public void Using_SkipsDisposeWhenNull()
+	{
+		var dm = new DynamicFunc<Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<TrackingDisposable>(out var resource)
+			.Using(resource, b => b.Nop())
+			.Ldc_I4(99)
+			.Ret();
+		Assert.Equal(99, dm.CreateDelegate()());
+	}
+
 	// --- Box / Unbox ---
 
 	[Fact]

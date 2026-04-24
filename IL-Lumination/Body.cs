@@ -20,52 +20,32 @@ public static class BodyExtensions
 		return body;
 	}
 
-	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TryBuilder<TBody>> configure) where TBody : BodyBase<TBody>
-	{
-		body.BeginExceptionBlock();
-		tryBody(body);
-		configure(new TryBuilder<TBody>(body));
-		body.EndExceptionBlock();
-		return body;
-	}
-}
-
-public static class BodyAddExtensions
-{
-	public static Body Add(this Body body, Int32 value1, Int32 value2) => body.Ldc_I4(value1).Ldc_I4(value2).Add();
-	public static Body Add_Ovf(this Body body, Int32 value1, Int32 value2) => body.Ldc_I4(value1).Ldc_I4(value2).Add_Ovf();
-	public static Body Add_Ovf_Un(this Body body, Int32 value1, Int32 value2) => body.Ldc_I4(value1).Ldc_I4(value2).Add_Ovf_Un();
-
-	public static Body Add(this Body body, Int64 value1, Int64 value2) => body.Ldc_I8(value1).Ldc_I8(value2).Add();
-	public static Body Add_Ovf(this Body body, Int64 value1, Int64 value2) => body.Ldc_I8(value1).Ldc_I8(value2).Add_Ovf();
-	public static Body Add_Ovf_Un(this Body body, Int64 value1, Int64 value2) => body.Ldc_I8(value1).Ldc_I8(value2).Add_Ovf_Un();
-}
-
-public static class BodyRetExtensions
-{
-	public static Body Ret(this Body body, Boolean value) => body.Ldc_I4(value ? 1 : 0).Ret();
-	public static Body Ret(this Body body, Byte value) => body.Ldc_I4(value).Ret();
-	public static Body Ret(this Body body, SByte value) => body.Ldc_I4(value).Ret();
-	public static Body Ret(this Body body, UInt16 value) => body.Ldc_I4(value).Ret();
-	public static Body Ret(this Body body, Int16 value) => body.Ldc_I4(value).Ret();
-	public static Body Ret(this Body body, UInt32 value) => body.Ldc_I4(unchecked((Int32)value)).Ret();
-	public static Body Ret(this Body body, Int32 value) => body.Ldc_I4(value).Ret();
-	public static Body Ret(this Body body, UInt64 value) => body.Ldc_I8(unchecked((Int64)value)).Ret();
-	public static Body Ret(this Body body, Int64 value) => body.Ldc_I8(value).Ret();
-	public static Body Ret(this Body body, Single value) => body.Ldc_R4(value).Ret();
-	public static Body Ret(this Body body, Double value) => body.Ldc_R8(value).Ret();
-	public static Body Ret(this Body body, String value) => body.Ldstr(value).Ret();
-
-	// public static Body Ret<T>(this Body body, T value)
-	// {
-	// 	if (typeof(T) == typeof(Boolean))
-	// 		body.Ldc_I4(value is true ? 1 : 0);
-	// 	return body.Ret();
-	// }
 }
 
 public static class BodyLogicExtensions
 {
+	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TryBuilder<TBody>> configure) where TBody : BodyBase<TBody>
+		=> body
+			.BeginExceptionBlock()
+			.Apply(tryBody)
+			.Apply(b => configure(new TryBuilder<TBody>(b)))
+			.EndExceptionBlock();
+
+	private static readonly MethodInfo DisposeMethod = typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!;
+
+	public static TBody Using<TBody>(this TBody body, LocalBuilder local, Action<TBody> bodyAction) where TBody : BodyBase<TBody>
+		=> body.Try(
+			bodyAction,
+			t => t.Finally(b => b
+				.Ldloc(local)
+				.DefineLabel(out var end)
+				.Brfalse(end)
+				.Ldloc(local)
+				.Callvirt(DisposeMethod)
+				.MarkLabel(end)
+			)
+		);
+
 	public static Body ForEach<T>(this Body body, IEnumerable<T> enumerable, Action<Body, T> action)
 	{
 		foreach (var item in enumerable)
