@@ -545,6 +545,42 @@ public class BodyOpcodeTests
 		Assert.Equal(55, dm.CreateDelegate()());
 	}
 
+	// --- If / IfElse ---
+
+	[Theory]
+	[InlineData(1, 0)]
+	[InlineData(0, 5)]
+	public void If_ThenOnly(Int32 expected, Int32 input)
+	{
+		var dm = new DynamicFunc<Int32, Int32>();
+		dm.GetILGenerator().Body()
+			.DeclareLocal<Int32>(out var result)
+			.Ldc_I4_0().Stloc(result)
+			.If(
+				condition: b => b.Ldarg_0().Ldc_I4_0().Ceq(),
+				then: b => b.Ldc_I4_1().Stloc(result)
+			)
+			.Ldloc(result)
+			.Ret();
+		Assert.Equal(expected, dm.CreateDelegate()(input));
+	}
+
+	[Theory]
+	[InlineData(1, 0)]
+	[InlineData(2, 5)]
+	public void If_ThenElse(Int32 expected, Int32 input)
+	{
+		var dm = new DynamicFunc<Int32, Int32>();
+		dm.GetILGenerator().Body()
+			.If(
+				condition: b => b.Ldarg_0().Ldc_I4_0().Ceq(),
+				then: b => b.Ldc_I4_1(),
+				@else: b => b.Ldc_I4_2()
+			)
+			.Ret();
+		Assert.Equal(expected, dm.CreateDelegate()(input));
+	}
+
 	[Fact]
 	public void For_SumsOneToTen()
 	{

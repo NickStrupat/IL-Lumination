@@ -46,6 +46,26 @@ public static class BodyLogicExtensions
 			)
 		);
 
+	public static TBody If<TBody>(this TBody body, Action<TBody> condition, Action<TBody> then) where TBody : BodyBase<TBody>
+		=> body
+			.Apply(condition)
+			.DefineLabel(out var end)
+			.Brfalse(end)
+			.Apply(then)
+			.MarkLabel(end);
+
+	public static TBody If<TBody>(this TBody body, Action<TBody> condition, Action<TBody> then, Action<TBody> @else) where TBody : BodyBase<TBody>
+		=> body
+			.Apply(condition)
+			.DefineLabel(out var elseLabel)
+			.DefineLabel(out var end)
+			.Brfalse(elseLabel)
+			.Apply(then)
+			.Br(end)
+			.MarkLabel(elseLabel)
+			.Apply(@else)
+			.MarkLabel(end);
+
 	public static TBody For<TBody>(this TBody body, Action<TBody> init, Action<TBody> condition, Action<TBody> increment, Action<TBody> forBody) where TBody : BodyBase<TBody>
 		=> body
 			.Apply(init)
