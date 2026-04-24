@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Illumination;
-using Illumination.Builders;
 using Illumination.Builders.Extensions;
 using Xunit;
 

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -12,7 +11,7 @@ internal sealed class BuildContext(BuilderMap builderMap, Assembly? coreAssembly
 	// public System.Reflection.Emit.TypeBuilder ResolveTypeBuilder(TypeBuilder typeBuilder) => builderMap.Get(typeBuilder);
 	// public System.Reflection.Emit.TypeBuilder ResolveTypeBuilder(EnumBuilder enumBuilder) => builderMap.Get(enumBuilder);
 	// public System.Reflection.Emit.MethodBuilder ResolveMethodBuilder(MethodBuilder methodBuilder) => builderMap.Get(methodBuilder);
-		
+
 	public Type GetCoreAssemblyType(Type type) => coreAssembly is null ? type : coreAssembly.GetType(type.FullName!) ?? type;
 	public MethodInfo GetCoreAssemblyMethod(MethodInfo method)
 	{
@@ -24,7 +23,7 @@ internal sealed class BuildContext(BuilderMap builderMap, Assembly? coreAssembly
 		{
 			// var bindingFlags = method.IsStatic ? BindingFlags.Static : BindingFlags.Instance;
 			// bindingFlags |= method.IsPublic ? BindingFlags.Public : BindingFlags.NonPublic;
-			return coreAssembly.GetType(dt.FullName!)?.GetMethod(method.Name, parameterTypes) ?? throw new("No method found in core assembly"); 
+			return coreAssembly.GetType(dt.FullName!)?.GetMethod(method.Name, parameterTypes) ?? throw new("No method found in core assembly");
 		}
 
 		return coreAssembly.Modules.Select(x => x.GetMethod(method.Name, parameterTypes) ?? throw new("No method found in core assembly")).First();

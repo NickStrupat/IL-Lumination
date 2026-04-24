@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Illumination.Assembly;
 
 public abstract class Definition

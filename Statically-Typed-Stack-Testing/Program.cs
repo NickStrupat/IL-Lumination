@@ -1,6 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using InlineIL;
+﻿using InlineIL;
 using static InlineIL.IL.Emit;
 
 ref int r = ref Unsafe2.AsRef(out int i);
