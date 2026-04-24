@@ -24,38 +24,37 @@ public static class BodyExtensions
 
 public static class BodyLogicExtensions
 {
-	public static TBody Try<TBody>(this TBody body, Action<TBody> tryBody, Action<TryBuilder<TBody>> configure) where TBody : BodyBase<TBody>
-		=> body
+	private static readonly MethodInfo DisposeMethod = typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!;
+
+	extension<TBody>(TBody body) where TBody : BodyBase<TBody>
+	{
+		public TBody Try(Action<TBody> tryBody, Action<TryBuilder<TBody>> configure) => body
 			.BeginExceptionBlock()
 			.Apply(tryBody)
 			.Apply(b => configure(new TryBuilder<TBody>(b)))
 			.EndExceptionBlock();
 
-	private static readonly MethodInfo DisposeMethod = typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!;
+		public TBody Using(LocalBuilder local, Action<TBody> bodyAction) => body
+			.Try(
+				bodyAction,
+				t => t.Finally(b => b
+					.Ldloc(local)
+					.DefineLabel(out var end)
+					.Brfalse(end)
+					.Ldloc(local)
+					.Callvirt(DisposeMethod)
+					.MarkLabel(end)
+				)
+			);
 
-	public static TBody Using<TBody>(this TBody body, LocalBuilder local, Action<TBody> bodyAction) where TBody : BodyBase<TBody>
-		=> body.Try(
-			bodyAction,
-			t => t.Finally(b => b
-				.Ldloc(local)
-				.DefineLabel(out var end)
-				.Brfalse(end)
-				.Ldloc(local)
-				.Callvirt(DisposeMethod)
-				.MarkLabel(end)
-			)
-		);
-
-	public static TBody If<TBody>(this TBody body, Action<TBody> condition, Action<TBody> then) where TBody : BodyBase<TBody>
-		=> body
+		public TBody If(Action<TBody> condition, Action<TBody> then) => body
 			.Apply(condition)
 			.DefineLabel(out var end)
 			.Brfalse(end)
 			.Apply(then)
 			.MarkLabel(end);
 
-	public static TBody If<TBody>(this TBody body, Action<TBody> condition, Action<TBody> then, Action<TBody> @else) where TBody : BodyBase<TBody>
-		=> body
+		public TBody If(Action<TBody> condition, Action<TBody> then, Action<TBody> @else) => body
 			.Apply(condition)
 			.DefineLabel(out var elseLabel)
 			.DefineLabel(out var end)
@@ -66,13 +65,7 @@ public static class BodyLogicExtensions
 			.Apply(@else)
 			.MarkLabel(end);
 
-	public static TBody For<TBody>(this TBody body, Action<TBody> init, Action<TBody> condition, Action<TBody> increment, Action<TBody> forBody) where TBody : BodyBase<TBody>
-		=> body
-			.Apply(init)
-			.While(condition, b => b.Apply(forBody).Apply(increment));
-
-	public static TBody While<TBody>(this TBody body, Action<TBody> condition, Action<TBody> whileBody) where TBody : BodyBase<TBody>
-		=> body
+		public TBody While(Action<TBody> condition, Action<TBody> whileBody) => body
 			.DefineLabel(out var loopStart)
 			.DefineLabel(out var end)
 			.MarkLabel(loopStart)
@@ -81,6 +74,11 @@ public static class BodyLogicExtensions
 			.Apply(whileBody)
 			.Br(loopStart)
 			.MarkLabel(end);
+
+		public TBody For(Action<TBody> init, Action<TBody> condition, Action<TBody> increment, Action<TBody> forBody) => body
+			.Apply(init)
+			.While(condition, b => b.Apply(forBody).Apply(increment));
+	}
 
 	public static Body ForEach<T>(this Body body, IEnumerable<T> enumerable, Action<Body, T> action)
 	{
