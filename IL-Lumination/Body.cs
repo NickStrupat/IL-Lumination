@@ -46,6 +46,17 @@ public static class BodyLogicExtensions
 			)
 		);
 
+	public static TBody While<TBody>(this TBody body, Action<TBody> condition, Action<TBody> whileBody) where TBody : BodyBase<TBody>
+		=> body
+			.DefineLabel(out var loopStart)
+			.DefineLabel(out var end)
+			.MarkLabel(loopStart)
+			.Apply(condition)
+			.Brfalse(end)
+			.Apply(whileBody)
+			.Br(loopStart)
+			.MarkLabel(end);
+
 	public static Body ForEach<T>(this Body body, IEnumerable<T> enumerable, Action<Body, T> action)
 	{
 		foreach (var item in enumerable)
